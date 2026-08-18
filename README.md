@@ -30,25 +30,18 @@ The framework, and the imbalance patterns worth testing against the data, are in
 
 Butler owns the loop. Everything else is optional on any given day.
 
-## Quick start
+## Daily operation
+
+The platform is live; this is the loop. Docker is always required — the graph
+is the sole analysis source, and a down graph fails loudly rather than
+reporting zeros.
 
 ```bash
-cp .env.example .env && chmod 600 .env    # add your key + token
-uv sync
-uv run flow discover                     # pick a board
-uv run flow discover --select <board-id>
-uv run flow bootstrap --apply            # ensure lists + Flow label
-uv run flow check                        # what the drain would touch — read it
-```
-
-Then create the three Butler rules by hand: **`docs/02-butler-rules.md`**.
-
-Daily-to-weekly (the agent runs these; they also work by hand):
-
-```bash
+just up                      # Neo4j + schema (once per boot)
 uv run flow sync --signals   # every source -> archive -> the whole graph DAG
 uv run flow brief            # what deserves attention, and how deep to go
 uv run flow report           # practice, reception, embodiment + posteriors
+uv run flow evidence --window 7   # the review pack, when a review is due
 ```
 
 Three analysis surfaces, one source (the graph): the **CLI** above; the
@@ -57,6 +50,26 @@ the **literate notebooks** (`just notebook`, then
 `http://localhost:2719/?file=flow.py` for the practice narrative and
 `?file=graph.py` for the guide to the graph — contract in
 `notebooks/README.md`).
+
+In normal use the agent runs all of this (`CLAUDE.md` is the contract, and it
+engages socratically — `docs/10-socratic-practice.md`); every command also
+works by hand.
+
+## First-time setup (new machine or new board)
+
+```bash
+cp .env.example .env && chmod 600 .env    # add your key + token
+uv sync --all-groups
+just install-cmdstan                      # one-off: the inference layer
+uv run flow discover                     # pick a board
+uv run flow discover --select <board-id>
+uv run flow bootstrap --apply            # ensure lists + Flow label
+uv run flow check                        # what the drain would touch — read it
+```
+
+Then create the three Butler rules by hand: **`docs/02-butler-rules.md`**. The
+board side is a one-off — Butler runs the daily cycle on Trello's own
+infrastructure from then on.
 
 ## Commands
 
@@ -68,6 +81,8 @@ the **literate notebooks** (`just notebook`, then
 | `flow brief [--json]` | What is stale, due, changed and newly answerable — start here |
 | `flow sync [--backfill] [--since DATE]` | Pull history into the local store, with an integrity check |
 | `flow report [--json\|--rows\|--export PATH]` | Regularity metrics; CSV/parquet export |
+| `flow evidence --window N [--json]` | The review pack: rates, diagnostics, verdicts, adequacy |
+| `flow publish` | Render the summary dashboard to `reports/dashboard.html` |
 | `flow refill [--dry-run]` | Create today's five W.A.T.E.R. cards (Butler fallback) |
 | `flow drain [--dry-run]` | Archive unfinished `Flow` cards (Butler fallback) |
 
