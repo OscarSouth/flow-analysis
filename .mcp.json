@@ -1,0 +1,50 @@
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {
+        "MEMORY_FILE_PATH": "/Users/oscarsouth/flow-analysis/.claude/memory.jsonl"
+      }
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "claude-code",
+        "--project",
+        "/Users/oscarsouth/flow-analysis"
+      ],
+      "env": {}
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "dagster": {
+      "command": "uv",
+      "args": ["run", "python", "/Users/oscarsouth/flow-analysis/dagster_mcp.py"],
+      "env": {
+        "DAGSTER_GRAPHQL_URL": "http://localhost:3001/graphql"
+      }
+    },
+    "neo4j": {
+      "command": "neo4j-mcp",
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7689",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "password",
+        "NEO4J_DATABASE": "neo4j",
+        "NEO4J_READ_ONLY": "true"
+      }
+    },
+    "marimo": {
+      "type": "http",
+      "url": "http://localhost:2719/mcp/server"
+    }
+  }
+}

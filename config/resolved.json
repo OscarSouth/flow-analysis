@@ -1,0 +1,25 @@
+{
+  "board_id": "5a154e6d562db6cb027e211e",
+  "board_name": "flow",
+  "board_timezone": null,
+  "board_url": "https://trello.com/b/4NaaWEhq/flow",
+  "label_id": "5a154e6ea26c16c191b7f428",
+  "lists": {
+    "drain": {
+      "id": "6a81d51786735a71a3e304fe",
+      "name": "drain"
+    },
+    "future": {
+      "id": "5e4bea2331f07c02820dad1e",
+      "name": "future"
+    },
+    "past": {
+      "id": "6a7de719a53ce4562b37a1ca",
+      "name": "past"
+    },
+    "present": {
+      "id": "6a7de716faafd462f46e012b",
+      "name": "present"
+    }
+  }
+}

@@ -1,0 +1,418 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.23.16",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "759673221904c54a889187d06de1e368",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "4210c48a885e7e3c1e72c6f8dc9fdd3a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"flow-water-diagnostics\">Flow \u2014 W.A.T.E.R. diagnostics</h1>\n<span class=\"paragraph\"><strong>What this is</strong>: the analysis surface over the daily practice. Five cards\nappear each morning; anything unfinished is drained at 04:00. This notebook\nasks what that record says.</span>\n<span class=\"paragraph\"><strong>The discipline</strong> (see <code>docs/06-diagnostics.md</code>):</span>\n<ul>\n<li>Hypotheses are <strong>pre-registered</strong>. Three are committed to publicly in\n  article 05 and are tested exactly as published.</li>\n<li>Every plot is <strong>N-gated</strong> and refuses rather than misleads. Five binary-ish\n  outcomes a day is thin; rates are noise for 8\u201312 weeks.</li>\n<li>Nothing is <strong>causal</strong>. Card order is randomised for variety, not inference,\n  so any coupling to output is confounded.</li>\n</ul>\n<span class=\"paragraph\"><strong>How to read this notebook</strong> (literate contract: <code>notebooks/README.md</code>):\ntop to bottom, as one story. It moves from <em>what happened</em> (the calendar,\nthe rates) through <em>how the days actually went</em> (latency, ordering) to\n<em>what the system judges</em> (diagnostics) and finally <em>what it believes, with\nhow strongly</em> (the posterior chapter at the end). Every closed gate speaks\nin prose \u2014 \"not yet\" is part of the story.</span>\n<span class=\"paragraph\"><strong>Toggle the source below.</strong> Fixture data is fabricated to <em>contain</em> the\npatterns the analysis looks for \u2014 use it to check the machinery, never as\nevidence about the practice.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "91129a3839ff1cccf8dc651654aa125a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<div style='display: flex;flex: 1;flex-direction: row;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><marimo-ui-element object-id='vblA-0' random-id='066dedd7-3e74-d5a2-f07d-2b38b5e80c89'><marimo-radio data-initial-value='&quot;real&quot;' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003eData source&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-options='[&quot;real&quot;,&quot;fixture (fabricated)&quot;]' data-inline='false' data-disabled='false'></marimo-radio></marimo-ui-element><marimo-ui-element object-id='vblA-1' random-id='ad00a75d-33c1-0a85-599f-ad34e90f01b3'><marimo-slider data-initial-value='120' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003eFixture days&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-start='30' data-stop='365' data-steps='[]' data-debounce='false' data-disabled='false' data-orientation='&quot;horizontal&quot;' data-show-value='false' data-include-input='false' data-full-width='false'></marimo-slider></marimo-ui-element></div>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "c983971c3d6a1dc3fb6c92d177299a83",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "206a428df899c23a86baf3fe05cb5956",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>3 days observed.</strong>\n7 of 9 measures are underpowered: <code>allocation_vs_capacity, charge, coupling, adherence_without_production, h1_train_most_never_started, h2_express_slowest_to_start, h3_write_carries_the_others</code></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "6d1a0243a389338e4904940c4a97e35e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"pre-registered-hypotheses\">Pre-registered hypotheses</h2>\n<span class=\"paragraph\">\"\n    \"Committed to publicly in article 05, before any data existed. Tested as \"\n    \"published, not reworded to whatever the numbers happen to support.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "ac59c97718df923f4d0f05385b0b64cb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><ul>\n<li><strong>H1</strong> \u2014 Train is the most frequent never-started<ul>\n<li><em>underpowered</em>: N=3, needs 14</li>\n</ul>\n</li>\n<li><strong>H2</strong> \u2014 Express carries the longest delay to first touch<ul>\n<li><em>underpowered</em>: N=0, needs 20</li>\n</ul>\n</li>\n<li><strong>H3</strong> \u2014 days Write is missed show lower completion elsewhere<ul>\n<li><em>underpowered</em>: N=3, needs 14</li>\n</ul>\n</li>\n</ul></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "7e3a35a722db52e257400ca5608f3796",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"1-calendar\">1 \u2014 Calendar</h2>\n<span class=\"paragraph\">The glance: five modes by day, coloured by outcome.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "8f95b53908dce2d56f57918f7f2b9de8",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>calendar</strong> \u2014 insufficient data: 3 of 7 needed. 4 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "b2c9bdae4b54f5860bc053102189e059",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"2-rolling-completion-rate\">2 \u2014 Rolling completion rate</h2>\n<span class=\"paragraph\">\"\n    \"Rate, never cumulative count: a missed day is data, not debt, so there \"\n    \"is no backlog to accumulate.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "8793e6560ea0453d96b5ee964e5ed0e3",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>rolling_rate</strong> \u2014 insufficient data: 3 of 14 needed. 11 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "d67bedaa282b7011f205930e3481f01a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"3-4-latency-and-the-clock\">3 &amp; 4 \u2014 Latency and the clock</h2>\n<span class=\"paragraph\">\"\n    \"How long until a mode is first touched, and when work actually lands. \"\n    \"Time-to-start is the hesitation signal \u2014 the quantity most likely to \"\n    \"move before a streak breaks.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "e776b270e7cabf72a150b81654091548",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "aadecb5c9d68bda17bba27c52ec7c21d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>completion_clock</strong> \u2014 insufficient data: 1 of 20 needed. 19 more to go.  <em>(counted per mode, not per day)</em></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "iLit",
+      "code_hash": "f8327bf653b184f4cba48e3be7923ced",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"5-6-weekday-shape-and-pull-order\">5 &amp; 6 \u2014 Weekday shape and pull order</h2>\n<span class=\"paragraph\">\"\n    \"Cards are refilled in random order, so which mode gets reached first is \"\n    \"a choice rather than an artefact of the list.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "0b82f6d942e80375c56a8b9cde089e93",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>weekday</strong> \u2014 insufficient data: 3 of 28 needed. 25 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "7929551219300dd49a0a16d6bf68b917",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>pull_order</strong> \u2014 insufficient data: 3 of 14 needed. 11 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "d3a0b13877912cb190814b1b5d3d842b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"7-8-charge-and-streaks\">7 &amp; 8 \u2014 Charge and streaks</h2>\n<span class=\"paragraph\"><strong>Charge</strong> is the normalised spread of completion rates across the five. Zero means attention is spread evenly \u2014 harmonious, and the precursor to stagnation. Approaching one means one mode thrives while another is dead.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "TqIu",
+      "code_hash": "b3de31c9543adca5b74a99d47ccd4847",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>charge</strong> \u2014 insufficient data: 3 of 28 needed. 25 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Vxnm",
+      "code_hash": "4999bcb6e96dbcd7f4c31a9719612bdb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>streaks</strong> \u2014 insufficient data: 3 of 14 needed. 11 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "DnEU",
+      "code_hash": "813ac33f2da407387000d512f62331a5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"9-10-coupling-to-production\">9 &amp; 10 \u2014 Coupling to production</h2>\n<span class=\"paragraph\">\"\n    \"Does the practice running actually produce anything? Forum posts are the \"\n    \"external trace; Trello can only ever record that the practice ran.</span>\n<span class=\"paragraph\">\"\n    \"&gt; <strong>Association only.</strong> No randomisation by design, so this is \"\n    \"confounded: a good day plausibly raises both completions and output.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ulZA",
+      "code_hash": "50e200c759a10364bbcde372fb915bea",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>coupling</strong> \u2014 insufficient data: 3 of 60 needed. 57 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ecfG",
+      "code_hash": "aaca3cef505b62fc80271c7fffe019b2",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>cumulative_output</strong> \u2014 insufficient data: 3 of 28 needed. 25 more to go.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Pvdt",
+      "code_hash": "fbdcf65708dc85fa90ebe6b7b9493ea7",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"diagnostics\">Diagnostics</h2>\n<span class=\"paragraph\">\"\n    \"The table from <code>docs/06-diagnostics.md</code>, as far as N allows \u2014 including \"\n    \"the modes Wiggins has no vocabulary for, because his systems always run \"\n    \"and a daily practice can simply fail to.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ZBYS",
+      "code_hash": "667dd3a8b707fd4c413924509fe63d7e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<div style='display: flex;flex: 1;flex-direction: column;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Failure kind</strong> \u2014 allocation_vs_capacity: insufficient data \u2014 N=3, needs 14</span></span><div style='display: flex;flex: 1;flex-direction: column;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Dormancy</strong> \u2014 consecutive days a channel was never attempted. Not uninspiration: nothing was tried, so nothing failed to be reached.</span></span><marimo-ui-element object-id='ZBYS-0' random-id='f60b6ab3-efb7-83aa-eeb0-8403d0329555'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;activity&#92;&quot;:&#92;&quot;Write&#92;&quot;,&#92;&quot;current&#92;&quot;:0,&#92;&quot;longest&#92;&quot;:2,&#92;&quot;status&#92;&quot;:&#92;&quot;open&#92;&quot;},{&#92;&quot;activity&#92;&quot;:&#92;&quot;Absorb&#92;&quot;,&#92;&quot;current&#92;&quot;:0,&#92;&quot;longest&#92;&quot;:0,&#92;&quot;status&#92;&quot;:&#92;&quot;open&#92;&quot;},{&#92;&quot;activity&#92;&quot;:&#92;&quot;Train&#92;&quot;,&#92;&quot;current&#92;&quot;:2,&#92;&quot;longest&#92;&quot;:2,&#92;&quot;status&#92;&quot;:&#92;&quot;open&#92;&quot;},{&#92;&quot;activity&#92;&quot;:&#92;&quot;Express&#92;&quot;,&#92;&quot;current&#92;&quot;:3,&#92;&quot;longest&#92;&quot;:3,&#92;&quot;status&#92;&quot;:&#92;&quot;open&#92;&quot;},{&#92;&quot;activity&#92;&quot;:&#92;&quot;Reveal&#92;&quot;,&#92;&quot;current&#92;&quot;:3,&#92;&quot;longest&#92;&quot;:3,&#92;&quot;status&#92;&quot;:&#92;&quot;open&#92;&quot;}]&quot;' data-total-rows='5' data-total-columns='4' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-field-types='[[&quot;activity&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;current&quot;,[&quot;integer&quot;,&quot;i64&quot;]],[&quot;longest&quot;,[&quot;integer&quot;,&quot;i64&quot;]],[&quot;status&quot;,[&quot;string&quot;,&quot;str&quot;]]]' data-show-filters='true' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element></div><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Productive aberration</strong> \u2014 output arriving without Reveal, i.e. from outside the rules</span>\n<span class=\"paragraph\"><code>{'days': 0, 'share_of_producing_days': None, 'channel': 'Reveal', 'events': []}</code></span></span><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Adherence without production</strong> \u2014 the quiet precursor to stagnation</span>\n<span class=\"paragraph\"><code>insufficient data</code></span></span></div>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "aLJB",
+      "code_hash": "b8232caef7d2ca99a4b84c31cb28364d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"inference-what-the-system-believes-and-how-strongly\">Inference \u2014 what the system believes, and how strongly</h2>\n<span class=\"paragraph\">Everything above is observation and gated judgement. This chapter is\n<em>belief</em>: seed-pinned Bayesian fits over the cumulative record, snapshotted\ndaily into the graph. Three readings matter throughout:</span>\n<ul>\n<li><strong>the interval is the honest part</strong> \u2014 a wide one is visibility of\n  uncertainty, not a claim;</li>\n<li><strong>red means the sampler distrusts itself</strong> (R\u0302, effective sample size,\n  divergences) \u2014 stored as a fact about the fit, never read as a result;</li>\n<li><strong>verdicts gate separately</strong>: a posterior is always shown, but the\n  published hypotheses only earn <code>supported</code>/<code>not supported</code> once their\n  evidence gate clears. Until then they say <em>not testable yet</em>, however\n  the probability leans.</li>\n</ul></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "nHfw",
+      "code_hash": "4de3abd9dce30862b33d90b9af14311b",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'Theme' object has no attribute 'accent'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/var/folders/y7/qmggldx125nby534_rbmgdtw0000gp/T/marimo_87919/__marimo__cell_nHfw_.py&quot;</span>, line <span class=\"m\">28</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"nb\">range</span><span class=\"o\">=</span><span class=\"p\">[</span><span class=\"n\">theme</span><span class=\"o\">.</span><span class=\"n\">accent</span><span class=\"p\">,</span> <span class=\"n\">theme</span><span class=\"o\">.</span><span class=\"n\">bad</span><span class=\"p\">]),</span>\n<span class=\"w\">           </span><span class=\"pm\">^^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;Theme&#39; object has no attribute &#39;accent&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "xXTn",
+      "code_hash": "4a0ada34956588ae0c2113a01a6ea237",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"time-to-start-survival-where-the-day-actually-goes\">Time-to-start survival \u2014 where the day actually goes</h3>\n<span class=\"paragraph\"><em>What's asking:</em> how long does each mode wait before being touched \u2014 and\nhow often is it never touched at all? <em>How:</em> a Kaplan-Meier product-limit\ncurve per mode over minutes from the card appearing (06:00) to first\ntouch, with never-started days <strong>censored at the drain</strong> (04:00, minute\n1320) rather than dropped. <em>How to read:</em> the curve is \"share still\nuntouched at this minute\"; where it flattens without reaching zero, <strong>the\nplateau height is the allocation-failure probability</strong> \u2014 the share of days\nthat mode is simply never reached. <em>What would change it:</em> a mode whose\ncurve drops early is being reached for first; one with a high plateau has\nan allocation problem no amount of drilling will fix.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "AjVT",
+      "code_hash": "c9e543b7c9473687608078bbf793dede",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "pHFh",
+      "code_hash": "f9f53c6ff6c524073891bb2f2e9fdff7",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"the-evolving-posterior-belief-over-time\">The evolving posterior \u2014 belief over time</h3>\n<span class=\"paragraph\"><em>What's asking:</em> how has the system's belief in the practice-level\ncompletion rate moved as evidence accumulated? <em>How:</em> each day's snapshot\nis one interval; laid side by side they are the credible band narrowing\n(or refusing to). <em>How to read:</em> the band should tighten as days\naccumulate; a band that jumps marks a genuine shift in the practice, not\nnoise \u2014 that is what \"rolling Bayesian\" buys.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "NCOB",
+      "code_hash": "8c4b19c53f76ef8130a07866e105ca85",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Not yet</strong> \u2014 1 snapshot day(s) of the 7 this chart needs. It will draw itself as the record accumulates; each sync adds one column of belief.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "aqbW",
+      "code_hash": "440939b41cb230d974425193cf890d87",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><hr />\n<span class=\"paragraph\"><em>The deep guide to the graph these views read from is\n<code>graph.py</code> in this folder; the theory is\n<code>docs/08-creative-systems-practice.md</code>.</em></span></span>"
+          }
+        }
+      ],
+      "console": []
+    }
+  ]
+}

@@ -1,0 +1,302 @@
+"""Embodiment: what was actually done, in a body. Not an impact metric.
+
+`Train` is **one lane** — discipline-based embodiment — and nothing here splits
+it. The distinction between strength work and instrumental practice matters when
+*troubleshooting an output*, never when scoring a day.
+
+Two honest jobs:
+
+1. **A second observer of Train.** The board records that a card moved; the watch
+   records that a body did something. Where they disagree, that is worth knowing.
+2. **A slow state variable.** Body mass responds to months, not to Tuesdays, so
+   it is smoothed and read at monthly cadence — which is also the cadence Oscar
+   asked for.
+
+The one thing this module must never do is present a *measurement* gap as a
+*behaviour* gap. Silence from the watch means the watch was silent; it does not
+mean nothing happened.
+"""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING, Any
+
+from ..tiers import TIER_EMBODIMENT, row_tier
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from ..config import Config
+
+# Beyond this, the watch has been quiet long enough that the series should be
+# treated as stale rather than as a run of rest days.
+STALE_AFTER_DAYS = 21
+
+# Body mass moves a kilo on water alone, so a single reading is noise.
+SMOOTH_DAYS = 28
+
+
+def _embodiment(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [r for r in rows if row_tier(r) == TIER_EMBODIMENT]
+
+
+def workouts_by_month(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    """Sessions per month, split by kind for context but never scored separately."""
+    out: dict[str, dict[str, int]] = defaultdict(lambda: {"strength": 0, "cardio": 0})
+    for row in _embodiment(rows):
+        if row.get("kind") != "workout" or not row.get("created_at"):
+            continue
+        month = out[row["created_at"][:7]]
+        month["strength" if row.get("strength") else "cardio"] += 1
+    return dict(sorted(out.items()))
+
+
+def workout_coverage(
+    rows: Sequence[dict[str, Any]], today: date | None = None
+) -> dict[str, Any]:
+    """When the watch last logged anything, and whether that is stale.
+
+    The distinction this exists to protect: a long silence is a gap in
+    *measurement*, and reading it as a gap in *training* would be an accusation
+    the data cannot support.
+    """
+    stamps = sorted(
+        row["created_at"]
+        for row in _embodiment(rows)
+        if row.get("kind") == "workout" and row.get("created_at")
+    )
+    now = today or datetime.now(UTC).date()
+    if not stamps:
+        return {
+            "total": 0,
+            "first": None,
+            "last": None,
+            "days_since": None,
+            "stale": True,
+        }
+    last = date.fromisoformat(stamps[-1][:10])
+    days_since = (now - last).days
+    return {
+        "total": len(stamps),
+        "first": stamps[0][:10],
+        "last": stamps[-1][:10],
+        "days_since": days_since,
+        "stale": days_since > STALE_AFTER_DAYS,
+    }
+
+
+def body_series(
+    rows: Sequence[dict[str, Any]], metric: str = "body_mass"
+) -> list[dict[str, Any]]:
+    """Chronological readings for one body metric."""
+    series = [
+        {"day": row["created_at"][:10], "value": row["value"], "unit": row.get("unit")}
+        for row in _embodiment(rows)
+        if row.get("kind") == "body"
+        and row.get("metric") == metric
+        and row.get("created_at")
+        and row.get("value") is not None
+    ]
+    return sorted(series, key=lambda r: r["day"])
+
+
+def body_trend(
+    rows: Sequence[dict[str, Any]], metric: str = "body_mass"
+) -> dict[str, Any] | None:
+    """Latest reading against a smoothed recent average.
+
+    Smoothed because body mass swings a kilo on hydration alone: a single reading
+    against a single earlier reading would manufacture a trend out of water.
+    """
+    series = body_series(rows, metric)
+    if not series:
+        return None
+    latest = series[-1]
+    last_day = date.fromisoformat(latest["day"])
+    recent = [
+        r["value"]
+        for r in series
+        if (last_day - date.fromisoformat(r["day"])).days < SMOOTH_DAYS
+    ]
+    earlier = [
+        r["value"]
+        for r in series
+        if SMOOTH_DAYS
+        <= (last_day - date.fromisoformat(r["day"])).days
+        < SMOOTH_DAYS * 2
+    ]
+    recent_mean = sum(recent) / len(recent) if recent else None
+    earlier_mean = sum(earlier) / len(earlier) if earlier else None
+    return {
+        "metric": metric,
+        "latest": latest["value"],
+        "latest_day": latest["day"],
+        "unit": latest.get("unit"),
+        "readings": len(series),
+        "recent_mean": round(recent_mean, 2) if recent_mean is not None else None,
+        "recent_n": len(recent),
+        "earlier_mean": round(earlier_mean, 2) if earlier_mean is not None else None,
+        "earlier_n": len(earlier),
+        "change": (
+            round(recent_mean - earlier_mean, 2)
+            if recent_mean is not None and earlier_mean is not None
+            else None
+        ),
+    }
+
+
+def since_epoch(rows: Sequence[dict[str, Any]], epoch: date) -> dict[str, Any]:
+    """Embodiment since the practice began — the same ground zero as reception.
+
+    Everything before the epoch was earned under a different regime: ad-hoc
+    training, and — as it happens — unreliable measurement after a phone change.
+    It is context, not the practice's record.
+
+    Body mass is the exception that proves the rule. It is a *level*, not an
+    accumulation, so the epoch value is a genuine starting line rather than
+    something to be discounted: the question is how far it has moved since.
+    """
+    cutoff = epoch.isoformat()
+    workouts = [
+        row
+        for row in _embodiment(rows)
+        if row.get("kind") == "workout" and (row.get("created_at") or "")[:10] >= cutoff
+    ]
+    body = [
+        row
+        for row in _embodiment(rows)
+        if row.get("kind") == "body" and (row.get("created_at") or "")[:10] >= cutoff
+    ]
+
+    mass = body_series(rows, "body_mass")
+    at_epoch = [r for r in mass if r["day"] <= cutoff]
+    since = [r for r in mass if r["day"] >= cutoff]
+    baseline = at_epoch[-1] if at_epoch else None
+    latest = since[-1] if since else None
+
+    return {
+        "workouts": len(workouts),
+        "strength": sum(1 for r in workouts if r.get("strength")),
+        "body_readings": len(body),
+        "mass_at_epoch": baseline["value"] if baseline else None,
+        "mass_at_epoch_day": baseline["day"] if baseline else None,
+        "mass_now": latest["value"] if latest else None,
+        "mass_change": (
+            round(latest["value"] - baseline["value"], 2)
+            if baseline and latest
+            else None
+        ),
+    }
+
+
+def summarise(cfg: Config, rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """The embodiment surface: what the body did, as a second observer.
+
+    Not an impact metric and not a score. Silence here is a gap in *measurement*
+    — the watch is worn while exercising or out of the house — so a quiet stretch
+    is reported as unobserved rather than as nothing having happened.
+
+    `rows` is passed in rather than loaded: Layer B never reaches into the store.
+    """
+    all_rows = list(rows)
+    return {
+        "epoch": cfg.start_date.isoformat() if cfg.start_date else None,
+        "since_epoch": since_epoch(all_rows, cfg.start_date)
+        if cfg.start_date
+        else None,
+        "by_month": workouts_by_month(all_rows),
+        "coverage": workout_coverage(all_rows),
+        "mass": body_trend(all_rows, "body_mass"),
+        "fat": body_trend(all_rows, "body_fat"),
+    }
+
+
+def render(summary: dict[str, Any]) -> str:
+    """Monthly cadence. Never a weekly score."""
+    coverage = summary["coverage"]
+    if not coverage["total"] and not summary["mass"]:
+        return ""
+
+    lines = ["Embodiment — a second observer of Train, not a score", ""]
+
+    era = summary.get("since_epoch")
+    if era:
+        lines.append(
+            f"  Since flow began ({summary['epoch']}): {era['workouts']} workout(s), "
+            f"{era['body_readings']} body reading(s)"
+        )
+        if era.get("mass_at_epoch") is not None:
+            if era.get("mass_change") is not None:
+                lines.append(
+                    f"    Body mass {era['mass_now']} kg, from {era['mass_at_epoch']} "
+                    f"kg "
+                    f"at the epoch ({era['mass_at_epoch_day']}) — "
+                    f"{era['mass_change']:+} kg"
+                )
+            else:
+                lines.append(
+                    f"    Body mass at the epoch: {era['mass_at_epoch']} kg "
+                    f"({era['mass_at_epoch_day']}) — the starting line"
+                )
+
+    if coverage["total"]:
+        lines.append(
+            f"  Watch: {coverage['total']} sessions, {coverage['first']} .. "
+            f"{coverage['last']}"
+        )
+        if coverage["stale"]:
+            lines += [
+                f"  **No workout logged for {coverage['days_since']} days.** That is a "
+                "gap in measurement,",
+                "  not evidence of a gap in training — the watch has been "
+                "silent, which is not",
+                "  the same as the body having been. Treat the series as stale "
+                "until it resumes.",
+            ]
+
+    months = summary["by_month"]
+    if months:
+        recent = list(months.items())[-6:]
+        lines += ["", "  Sessions by month (strength / other) — pre-epoch context:"]
+        for month, stat in recent:
+            bar = "#" * stat["strength"]
+            lines.append(
+                f"    {month}  {stat['strength']:2} / {stat['cardio']:<2} {bar}"
+            )
+
+    mass = summary["mass"]
+    if mass:
+        lines += [
+            "",
+            f"  Body mass: {mass['latest']} {mass['unit']} on {mass['latest_day']}",
+        ]
+        if mass["change"] is not None:
+            direction = "up" if mass["change"] > 0 else "down"
+            lines.append(
+                f"    {SMOOTH_DAYS}-day mean {mass['recent_mean']} vs "
+                f"{mass['earlier_mean']} "
+                f"the {SMOOTH_DAYS} days before — {direction} {abs(mass['change'])} "
+                f"(n={mass['recent_n']} vs {mass['earlier_n']})"
+            )
+        else:
+            lines.append(
+                f"    only {mass['recent_n']} reading(s) in the last "
+                f"{SMOOTH_DAYS} days — "
+                "not enough to smooth against a prior window"
+            )
+
+    lines += [
+        "",
+        "  Everything before the epoch is ground zero, the same as reception: earned",
+        "  under a different regime, and after a phone change that made the "
+        "measurement",
+        "  unreliable. Body mass is the exception — a level, not an "
+        "accumulation, so its",
+        "  epoch value is a genuine starting line rather than something to discount.",
+        "",
+        "  Read monthly, never weekly. Body mass answers to months; a single reading",
+        "  moves a kilo on hydration alone.",
+    ]
+    return "\n".join(lines)

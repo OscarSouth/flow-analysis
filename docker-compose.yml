@@ -1,0 +1,21 @@
+services:
+  neo4j:
+    image: neo4j:2026.02
+    container_name: flow-analysis-neo4j
+    restart: unless-stopped
+    ports:
+      # Offset from the other projects' ports so all three can run at once.
+      - "7476:7474"
+      - "7689:7687"
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
+      - ./neo4j/plugins:/plugins
+    environment:
+      - NEO4J_AUTH=neo4j/password
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*,gds.*
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+      - NEO4J_server_memory_pagecache_size=512M
+      - NEO4J_server_memory_heap_initial__size=512M
+      - NEO4J_server_memory_heap_max__size=512M

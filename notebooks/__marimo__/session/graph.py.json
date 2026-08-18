@@ -1,0 +1,263 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.23.16",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "8412de11cb10be896bb111a882913db6",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "e8f2178e36f0280a875f0389e14c64ce",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"the-flow-graph-a-guided-tour\">The Flow Graph \u2014 a guided tour</h1>\n<span class=\"paragraph\"><strong>What this notebook holds open:</strong> what the graph contains, how each layer\nearns its place, and what the knowledge layer makes possible. Every query\nbelow runs live against the graph as you read.</span>\n<span class=\"paragraph\"><strong>The one architectural fact to carry:</strong> the graph is <em>derived</em>. The\nappend-only archive (<code>data/*.jsonl</code>) is the truth; Neo4j is rebuilt from it,\nprovably, with no network. That is why it is safe to query freely \u2014 nothing\nhere is the only copy of anything \u2014 and why it is the <strong>sole analysis\nsource</strong>: one path from record to conclusion, so two readings can never\nquietly disagree.</span>\n<span class=\"paragraph\">The layers are Neo4j <strong>labels</strong>, not name prefixes, so every query below is\nlabel-indexed:</span>\n<table>\n<thead>\n<tr>\n<th>layer</th>\n<th>holds</th>\n<th>intuition</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>Dim</code></td>\n<td>Day, Activity, Source</td>\n<td>the things facts hang off</td>\n</tr>\n<tr>\n<td><code>Stg</code></td>\n<td>FlowRow, Signal, Note</td>\n<td>validated observations, one node per fact</td>\n</tr>\n<tr>\n<td><code>Enr</code></td>\n<td>day adherence, similarity edges</td>\n<td>what a row cannot know alone</td>\n</tr>\n<tr>\n<td><code>Fct</code></td>\n<td>Measure, Posterior, Interpretation</td>\n<td>judgements, with their adequacy</td>\n</tr>\n<tr>\n<td><code>Meta</code></td>\n<td>Review, Prescription, Transformation, Hypothesis, GateOpened, DevProposal</td>\n<td>the practice's record of examining itself</td>\n</tr>\n</tbody>\n</table></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "ab4336060b027c4638d22da8909d5161",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"1-the-census\">1 \u2014 The census</h2>\n<span class=\"paragraph\"><em>What's asking:</em> what does the graph hold right now? <em>How:</em> count every\nlabel. <em>How to read:</em> <code>Signal</code> dominates \u2014 every external event is one\nnode. <em>What would change it:</em> every sync grows <code>Signal</code> and <code>Posterior</code>;\nthe <code>Meta</code> labels grow only when the practice examines itself.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "0b7fcd5d215df90381caf7ebc862f315",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='bkHC-0' random-id='9a928b99-3d25-4b81-1856-b4b013b6f672'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;label&#92;&quot;:&#92;&quot;Stg&#92;&quot;,&#92;&quot;nodes&#92;&quot;:5193},{&#92;&quot;label&#92;&quot;:&#92;&quot;Signal&#92;&quot;,&#92;&quot;nodes&#92;&quot;:5178},{&#92;&quot;label&#92;&quot;:&#92;&quot;Fct&#92;&quot;,&#92;&quot;nodes&#92;&quot;:30},{&#92;&quot;label&#92;&quot;:&#92;&quot;Posterior&#92;&quot;,&#92;&quot;nodes&#92;&quot;:19},{&#92;&quot;label&#92;&quot;:&#92;&quot;FlowRow&#92;&quot;,&#92;&quot;nodes&#92;&quot;:15},{&#92;&quot;label&#92;&quot;:&#92;&quot;Dim&#92;&quot;,&#92;&quot;nodes&#92;&quot;:12},{&#92;&quot;label&#92;&quot;:&#92;&quot;Meta&#92;&quot;,&#92;&quot;nodes&#92;&quot;:9},{&#92;&quot;label&#92;&quot;:&#92;&quot;Measure&#92;&quot;,&#92;&quot;nodes&#92;&quot;:9},{&#92;&quot;label&#92;&quot;:&#92;&quot;DevProposal&#92;&quot;,&#92;&quot;nodes&#92;&quot;:6},{&#92;&quot;label&#92;&quot;:&#92;&quot;Activity&#92;&quot;,&#92;&quot;nodes&#92;&quot;:5}]&quot;' data-total-rows='16' data-total-columns='2' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "af18dc4799f94b3ad488f6c3021e5e09",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"2-the-calendar-spine\">2 \u2014 The calendar spine</h2>\n<span class=\"paragraph\"><em>What's asking:</em> is the day chain intact? <em>How:</em> walk <code>NEXT</code> from the day\nnothing precedes to the day nothing follows. <em>How to read:</em> one row, whose\n<code>days</code> equals the number of <code>Dim:Day</code> nodes \u2014 a broken chain would split\nthis into fragments. <em>What would change it:</em> nothing should, ever; the\nrebuild test asserts it.</span>\n<div class=\"language-cypher codehilite\"><pre><span></span><code><span class=\"k\">MATCH</span><span class=\"w\"> </span><span class=\"n\">p</span><span class=\"w\"> </span><span class=\"p\">=</span><span class=\"w\"> </span><span class=\"p\">(</span><span class=\"n\">a</span><span class=\"p\">:</span><span class=\"n\">Dim</span><span class=\"p\">:</span><span class=\"n\">Day</span><span class=\"p\">)</span><span class=\"o\">-[</span><span class=\"p\">:</span><span class=\"n\">NEXT</span><span class=\"p\">*</span><span class=\"o\">]-&gt;</span><span class=\"p\">(</span><span class=\"n\">b</span><span class=\"p\">:</span><span class=\"n\">Dim</span><span class=\"p\">:</span><span class=\"n\">Day</span><span class=\"p\">)</span>\n<span class=\"k\">WHERE</span><span class=\"w\"> </span><span class=\"k\">NOT</span><span class=\"w\"> </span><span class=\"p\">(:</span><span class=\"n\">Dim</span><span class=\"p\">:</span><span class=\"n\">Day</span><span class=\"p\">)</span><span class=\"o\">-[</span><span class=\"p\">:</span><span class=\"n\">NEXT</span><span class=\"o\">]-&gt;</span><span class=\"p\">(</span><span class=\"n\">a</span><span class=\"p\">)</span><span class=\"w\"> </span><span class=\"n\">AND</span><span class=\"w\"> </span><span class=\"k\">NOT</span><span class=\"w\"> </span><span class=\"p\">(</span><span class=\"n\">b</span><span class=\"p\">)</span><span class=\"o\">-[</span><span class=\"p\">:</span><span class=\"n\">NEXT</span><span class=\"o\">]-&gt;</span><span class=\"p\">(:</span><span class=\"n\">Dim</span><span class=\"p\">:</span><span class=\"n\">Day</span><span class=\"p\">)</span>\n<span class=\"k\">RETURN</span><span class=\"w\"> </span><span class=\"n\">a</span><span class=\"p\">.</span><span class=\"n\">date</span><span class=\"w\"> </span><span class=\"k\">AS</span><span class=\"w\"> </span><span class=\"n\">first</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">b</span><span class=\"p\">.</span><span class=\"n\">date</span><span class=\"w\"> </span><span class=\"k\">AS</span><span class=\"w\"> </span><span class=\"n\">last</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">length</span><span class=\"p\">(</span><span class=\"n\">p</span><span class=\"p\">)</span><span class=\"err\">+</span><span class=\"m\">1</span><span class=\"w\"> </span><span class=\"k\">AS</span><span class=\"w\"> </span><span class=\"n\">days</span>\n</code></pre></div></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "02c22defb28fd2e35854d66fb71e6ade",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='PKri-0' random-id='d256c2f0-68d9-3a39-63d8-7592515e86a9'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;first&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;last&#92;&quot;:&#92;&quot;2026-08-18&#92;&quot;,&#92;&quot;days&#92;&quot;:3}]&quot;' data-total-rows='1' data-total-columns='3' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "8ac4652f3a56e493a71f3cd8edafd2d6",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"3-the-staged-grid-seen-from-the-graph\">3 \u2014 The staged grid, seen from the graph</h2>\n<span class=\"paragraph\"><em>What's asking:</em> what does one (day, mode) cell look like as a node? <em>How:</em>\nevery <code>Stg:FlowRow</code> carries its outcome, latencies, pull order \u2014 and joins\nthe calendar and its mode by relationship, which is what makes \"all of\nTrain's history\" one hop. <em>How to read:</em> five rows per day, dense by\nconstruction: a day the refill failed still has rows, saying\n<code>never_appeared</code>. Absence is a finding.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "cce74d7cdf15f5254a5eee2ab9209fb9",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='SFPL-0' random-id='f9d107be-3257-0952-ef9b-157e7eef4c39'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Absorb&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;abandoned_in_progress&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:33.2,&#92;&quot;pull_rank&#92;&quot;:2},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Express&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;never_started&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:null,&#92;&quot;pull_rank&#92;&quot;:null},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Reveal&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;never_started&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:null,&#92;&quot;pull_rank&#92;&quot;:null},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Train&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;completed&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:32.8,&#92;&quot;pull_rank&#92;&quot;:1},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Write&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;never_started&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:null,&#92;&quot;pull_rank&#92;&quot;:null},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Absorb&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;completed&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:661.5,&#92;&quot;pull_rank&#92;&quot;:1},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Express&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;never_started&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:null,&#92;&quot;pull_rank&#92;&quot;:null},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Reveal&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;never_started&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:null,&#92;&quot;pull_rank&#92;&quot;:null},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Train&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;never_started&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:null,&#92;&quot;pull_rank&#92;&quot;:null},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;mode&#92;&quot;:&#92;&quot;Write&#92;&quot;,&#92;&quot;outcome&#92;&quot;:&#92;&quot;never_started&#92;&quot;,&#92;&quot;mins_to_start&#92;&quot;:null,&#92;&quot;pull_rank&#92;&quot;:null}]&quot;' data-total-rows='15' data-total-columns='5' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "bbdd212df9544b8f078f1173dda0cae4",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"4-signals-the-full-payload-queryable\">4 \u2014 Signals: the full payload, queryable</h2>\n<span class=\"paragraph\"><em>What's asking:</em> can the graph answer payload questions without Python?\n<em>How:</em> every scalar the sources ever reported rides on <code>(:Stg:Signal)</code> as a\nproperty \u2014 so \"body mass over time\" is a WHERE clause. <em>How to read:</em> the\ntier is the load-bearing column: <code>production</code> is what left the building,\n<code>reception</code> what came back, and conflating them would let a stranger's star\ncount as your own output.</span>\n<div class=\"language-cypher codehilite\"><pre><span></span><code><span class=\"k\">MATCH</span><span class=\"w\"> </span><span class=\"p\">(</span><span class=\"n\">s</span><span class=\"p\">:</span><span class=\"n\">Stg</span><span class=\"p\">:</span><span class=\"n\">Signal</span><span class=\"w\"> </span><span class=\"p\">{</span><span class=\"n\">metric</span><span class=\"p\">:</span><span class=\"w\"> </span><span class=\"s\">&#39;body_mass&#39;</span><span class=\"p\">})</span>\n<span class=\"k\">RETURN</span><span class=\"w\"> </span><span class=\"n\">s</span><span class=\"p\">.</span><span class=\"n\">created_at</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">s</span><span class=\"p\">.</span><span class=\"n\">value</span><span class=\"w\"> </span><span class=\"k\">ORDER</span><span class=\"w\"> </span><span class=\"k\">BY</span><span class=\"w\"> </span><span class=\"n\">s</span><span class=\"p\">.</span><span class=\"n\">created_at</span><span class=\"w\"> </span><span class=\"k\">DESC</span><span class=\"w\"> </span><span class=\"k\">LIMIT</span><span class=\"w\"> </span><span class=\"m\">5</span>\n</code></pre></div></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "3351425d86687a3498b32a3ee0ed2711",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<div style='display: flex;flex: 1;flex-direction: column;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Rows by source and tier:</strong></span></span><marimo-ui-element object-id='RGSE-0' random-id='89ff8eac-a80e-065f-ec76-3b48d58c9484'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;source&#92;&quot;:&#92;&quot;youtube&#92;&quot;,&#92;&quot;tier&#92;&quot;:&#92;&quot;reception&#92;&quot;,&#92;&quot;rows&#92;&quot;:4072},{&#92;&quot;source&#92;&quot;:&#92;&quot;apple_health&#92;&quot;,&#92;&quot;tier&#92;&quot;:&#92;&quot;embodiment&#92;&quot;,&#92;&quot;rows&#92;&quot;:903},{&#92;&quot;source&#92;&quot;:&#92;&quot;github&#92;&quot;,&#92;&quot;tier&#92;&quot;:&#92;&quot;reception&#92;&quot;,&#92;&quot;rows&#92;&quot;:160},{&#92;&quot;source&#92;&quot;:&#92;&quot;youtube&#92;&quot;,&#92;&quot;tier&#92;&quot;:&#92;&quot;production&#92;&quot;,&#92;&quot;rows&#92;&quot;:37},{&#92;&quot;source&#92;&quot;:&#92;&quot;forum&#92;&quot;,&#92;&quot;tier&#92;&quot;:&#92;&quot;production&#92;&quot;,&#92;&quot;rows&#92;&quot;:3},{&#92;&quot;source&#92;&quot;:&#92;&quot;forum&#92;&quot;,&#92;&quot;tier&#92;&quot;:&#92;&quot;internal_other&#92;&quot;,&#92;&quot;rows&#92;&quot;:2},{&#92;&quot;source&#92;&quot;:&#92;&quot;forum&#92;&quot;,&#92;&quot;tier&#92;&quot;:&#92;&quot;reception&#92;&quot;,&#92;&quot;rows&#92;&quot;:1}]&quot;' data-total-rows='7' data-total-columns='3' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>The payload at work \u2014 latest body-mass readings:</strong></span></span><marimo-ui-element object-id='RGSE-1' random-id='17e510f8-7b70-26b4-73e1-dced19a9a3f8'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;at&#92;&quot;:&#92;&quot;2026-08-17T11:52:22+01:00&#92;&quot;,&#92;&quot;kg&#92;&quot;:62.35},{&#92;&quot;at&#92;&quot;:&#92;&quot;2026-08-15T10:20:57+01:00&#92;&quot;,&#92;&quot;kg&#92;&quot;:62.8},{&#92;&quot;at&#92;&quot;:&#92;&quot;2026-08-12T10:15:25+01:00&#92;&quot;,&#92;&quot;kg&#92;&quot;:63.9},{&#92;&quot;at&#92;&quot;:&#92;&quot;2026-08-10T10:16:54+01:00&#92;&quot;,&#92;&quot;kg&#92;&quot;:64.2},{&#92;&quot;at&#92;&quot;:&#92;&quot;2026-08-05T09:37:22+01:00&#92;&quot;,&#92;&quot;kg&#92;&quot;:63.05}]&quot;' data-total-rows='5' data-total-columns='2' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element></div>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "11b62536b765d0d2d41573593b6ccc9b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"5-posteriors-belief-with-its-provenance\">5 \u2014 Posteriors: belief, with its provenance</h2>\n<span class=\"paragraph\"><em>What's asking:</em> what does the system currently believe, and should the\nbelief itself be believed? <em>How:</em> one <code>(:Fct:Posterior)</code> per (measure, day)\n\u2014 the daily snapshot of a seed-pinned Stan fit, carrying its own\ndiagnostics. <em>How to read:</em> the interval is the honest part; a wide one is\nvisibility of uncertainty, not a claim. Hollow/red rows are fits <strong>the\nsampler itself distrusts</strong> (R\u0302, ESS, divergences) \u2014 stored as facts about\nthe sampler, never read as results. <em>What would change it:</em> every sync\nre-fits on cumulative data; intervals tighten as days accumulate, and the\nper-day history of this chart becomes the evolving-distribution view.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "a8de9e2cd4f3ee5aba7cad3b21afd3a3",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'Theme' object has no attribute 'accent'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/var/folders/y7/qmggldx125nby534_rbmgdtw0000gp/T/marimo_90303/__marimo__cell_emfo_.py&quot;</span>, line <span class=\"m\">19</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"nb\">range</span><span class=\"o\">=</span><span class=\"p\">[</span><span class=\"n\">theme</span><span class=\"o\">.</span><span class=\"n\">accent</span><span class=\"p\">,</span> <span class=\"n\">theme</span><span class=\"o\">.</span><span class=\"n\">bad</span><span class=\"p\">]),</span>\n<span class=\"w\">           </span><span class=\"pm\">^^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;Theme&#39; object has no attribute &#39;accent&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "6c1b03316a3da9776ce933023cb07d98",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"6-the-knowledge-layer-the-practice-examining-itself\">6 \u2014 The knowledge layer: the practice examining itself</h2>\n<span class=\"paragraph\">This is the part of the graph that makes the system more than telemetry.\nEverything the reviewing agent concludes \u2014 reviews, interpretations,\nprescriptions, transformations, hypotheses, opened gates, development\nproposals \u2014 is captured under a <strong>closed vocabulary</strong> (<code>taxonomy.py</code>),\npromoted append-only into the archive, and lands here linked to the\ncalendar and to the measures it concerns.</span>\n<span class=\"paragraph\"><em>Why it matters:</em> next month's review can ask what last month's concluded\n\u2014 and whether the one change it prescribed was followed, and worked. That\nloop is a query, not a memory:</span>\n<div class=\"language-cypher codehilite\"><pre><span></span><code><span class=\"k\">MATCH</span><span class=\"w\"> </span><span class=\"p\">(</span><span class=\"n\">p</span><span class=\"p\">:</span><span class=\"n\">Meta</span><span class=\"p\">:</span><span class=\"n\">Prescription</span><span class=\"p\">)</span><span class=\"o\">-[</span><span class=\"p\">:</span><span class=\"n\">PRESCRIBED_BY</span><span class=\"o\">]-&gt;</span><span class=\"p\">(</span><span class=\"n\">r</span><span class=\"p\">:</span><span class=\"n\">Meta</span><span class=\"p\">:</span><span class=\"n\">Review</span><span class=\"p\">)</span>\n<span class=\"k\">OPTIONAL</span><span class=\"w\"> </span><span class=\"k\">MATCH</span><span class=\"w\"> </span><span class=\"p\">(</span><span class=\"n\">o</span><span class=\"p\">:</span><span class=\"n\">Stg</span><span class=\"p\">:</span><span class=\"n\">Note</span><span class=\"p\">)</span><span class=\"o\">-[</span><span class=\"p\">:</span><span class=\"n\">OUTCOME_OF</span><span class=\"o\">]-&gt;</span><span class=\"p\">(</span><span class=\"n\">p</span><span class=\"p\">)</span>\n<span class=\"k\">RETURN</span><span class=\"w\"> </span><span class=\"n\">r</span><span class=\"p\">.</span><span class=\"n\">name</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">p</span><span class=\"p\">.</span><span class=\"n\">change</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">o</span><span class=\"p\">.</span><span class=\"n\">note</span>\n</code></pre></div></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "e27a06c0007a6c361f9385732fe89065",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<div style='display: flex;flex: 1;flex-direction: column;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Captured so far, by type:</strong></span></span><marimo-ui-element object-id='nWHF-0' random-id='95524e3d-6495-b53b-d9a1-5bc1d2ec7b0a'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;type&#92;&quot;:&#92;&quot;DevProposal&#92;&quot;,&#92;&quot;captured&#92;&quot;:6},{&#92;&quot;type&#92;&quot;:&#92;&quot;GateOpened&#92;&quot;,&#92;&quot;captured&#92;&quot;:2},{&#92;&quot;type&#92;&quot;:&#92;&quot;Interpretation&#92;&quot;,&#92;&quot;captured&#92;&quot;:2},{&#92;&quot;type&#92;&quot;:&#92;&quot;Transformation&#92;&quot;,&#92;&quot;captured&#92;&quot;:1}]&quot;' data-total-rows='4' data-total-columns='2' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><em>No open prescriptions \u2014 the first weekly review will create one, and next week's review will be asked what became of it.</em></span></span></div>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "iLit",
+      "code_hash": "70284164270ce95d79e33ebdf096e11e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"the-devproposal-register\">The DevProposal register</h3>\n<span class=\"paragraph\">The platform's own roadmap lives <em>in</em> the graph: each proposal carries the\nlimitation that motivated it and an explicit <strong>gate</strong> \u2014 the condition under\nwhich it becomes worth building. <code>flow brief</code> surfaces them when gates are\nreached; the quarterly review walks them. \"Later\" is a queryable condition,\nnot a memory.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "1d555362d8fc5408f5c78e29c7709832",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='ZHCJ-0' random-id='2248b3be-dba5-179f-253d-e25bc1cfe906'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;proposal&#92;&quot;:&#92;&quot;cooccurrence-probit&#92;&quot;,&#92;&quot;gate&#92;&quot;:&#92;&quot;60 practice days observed&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;registered&#92;&quot;},{&#92;&quot;proposal&#92;&quot;:&#92;&quot;gds-day-clustering&#92;&quot;,&#92;&quot;gate&#92;&quot;:&#92;&quot;60 practice days observed&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;registered&#92;&quot;},{&#92;&quot;proposal&#92;&quot;:&#92;&quot;gds-day-embeddings&#92;&quot;,&#92;&quot;gate&#92;&quot;:&#92;&quot;180 practice days observed&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;registered&#92;&quot;},{&#92;&quot;proposal&#92;&quot;:&#92;&quot;gds-knowledge-centrality&#92;&quot;,&#92;&quot;gate&#92;&quot;:&#92;&quot;25 knowledge entities linked to measures&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;registered&#92;&quot;},{&#92;&quot;proposal&#92;&quot;:&#92;&quot;hmm-regimes&#92;&quot;,&#92;&quot;gate&#92;&quot;:&#92;&quot;60 practice days observed&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;registered&#92;&quot;},{&#92;&quot;proposal&#92;&quot;:&#92;&quot;stm-topics&#92;&quot;,&#92;&quot;gate&#92;&quot;:&#92;&quot;roughly 100 text documents in the archive&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;registered&#92;&quot;}]&quot;' data-total-rows='6' data-total-columns='3' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "b8938809a4d1f6f0424d63d64bfed55f",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"7-structure-through-gds-visibility-never-inference\">7 \u2014 Structure through GDS: visibility, never inference</h2>\n<span class=\"paragraph\">Two <strong>standing projections</strong> are refreshed on every sync and can be\nstreamed by anyone (the agent does it through read-only Cypher):\n<code>flow_cocompletion</code> (which modes complete on the same days) and <code>flow_days</code>\n(days as feature vectors). <em>How to read:</em> these are <em>observed overlaps</em> \u2014\nwhich modes travel together \u2014 never facilitation claims. The inference\nversions (regime clustering, the co-occurrence probit) sit gated in the\nregister above until the data can carry them.</span>\n<div class=\"language-cypher codehilite\"><pre><span></span><code><span class=\"k\">CALL</span><span class=\"w\"> </span><span class=\"n\">gds</span><span class=\"p\">.</span><span class=\"n\">nodeSimilarity</span><span class=\"p\">.</span><span class=\"n\">stream</span><span class=\"p\">(</span><span class=\"s\">&#39;flow_cocompletion&#39;</span><span class=\"p\">)</span>\n<span class=\"k\">YIELD</span><span class=\"w\"> </span><span class=\"n\">node1</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">node2</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">similarity</span>\n<span class=\"k\">RETURN</span><span class=\"w\"> </span><span class=\"n\">gds</span><span class=\"p\">.</span><span class=\"n\">util</span><span class=\"p\">.</span><span class=\"n\">asNode</span><span class=\"p\">(</span><span class=\"n\">node1</span><span class=\"p\">).</span><span class=\"n\">name</span><span class=\"w\"> </span><span class=\"k\">AS</span><span class=\"w\"> </span><span class=\"n\">a</span><span class=\"p\">,</span>\n<span class=\"w\">       </span><span class=\"n\">gds</span><span class=\"p\">.</span><span class=\"n\">util</span><span class=\"p\">.</span><span class=\"n\">asNode</span><span class=\"p\">(</span><span class=\"n\">node2</span><span class=\"p\">).</span><span class=\"n\">name</span><span class=\"w\"> </span><span class=\"k\">AS</span><span class=\"w\"> </span><span class=\"n\">b</span><span class=\"p\">,</span><span class=\"w\"> </span><span class=\"n\">similarity</span>\n</code></pre></div></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "4ba84072ffd0761e61140be29d53276e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<div style='display: flex;flex: 1;flex-direction: column;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Modes that travel together (Jaccard over shared completed days):</strong></span></span><marimo-ui-element object-id='qnkX-0' random-id='5aeb23fa-2b34-1ef2-a450-8131fa644ece'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;mode&#92;&quot;:&#92;&quot;Absorb&#92;&quot;,&#92;&quot;travels_with&#92;&quot;:&#92;&quot;Write&#92;&quot;,&#92;&quot;jaccard&#92;&quot;:0.5},{&#92;&quot;mode&#92;&quot;:&#92;&quot;Write&#92;&quot;,&#92;&quot;travels_with&#92;&quot;:&#92;&quot;Absorb&#92;&quot;,&#92;&quot;jaccard&#92;&quot;:0.5}]&quot;' data-total-rows='2' data-total-columns='3' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element><span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Which past day most resembles which</strong> \u2014 the agent's 'last time it looked like this' retrieval:</span></span><marimo-ui-element object-id='qnkX-1' random-id='125b2d8b-ff85-2c01-53ce-5cc095a940a0'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;most_like&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;score&#92;&quot;:1.0},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;most_like&#92;&quot;:&#92;&quot;2026-08-18&#92;&quot;,&#92;&quot;score&#92;&quot;:0.92},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;most_like&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;score&#92;&quot;:1.0},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;most_like&#92;&quot;:&#92;&quot;2026-08-18&#92;&quot;,&#92;&quot;score&#92;&quot;:0.92},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-18&#92;&quot;,&#92;&quot;most_like&#92;&quot;:&#92;&quot;2026-08-16&#92;&quot;,&#92;&quot;score&#92;&quot;:0.92},{&#92;&quot;day&#92;&quot;:&#92;&quot;2026-08-18&#92;&quot;,&#92;&quot;most_like&#92;&quot;:&#92;&quot;2026-08-17&#92;&quot;,&#92;&quot;score&#92;&quot;:0.92}]&quot;' data-total-rows='6' data-total-columns='3' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-show-filters='false' data-show-download='true' data-show-search='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element></div>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "TqIu",
+      "code_hash": "ed214eaebc331846dd3b760d76ef20c0",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"what-to-take-away\">What to take away</h2>\n<ul>\n<li><strong>One source.</strong> Every surface \u2014 report, evidence, dashboard, these\n  notebooks, the agent's own answers \u2014 reads this graph and only this\n  graph.</li>\n<li><strong>Refusals are stored.</strong> A measure below its gate is a row saying so; a\n  distrusted fit is a row saying so. The graph never looks more certain\n  than the system is.</li>\n<li><strong>The knowledge layer is the compounding part.</strong> Telemetry accrues by\n  itself; judgement accrues only because reviews write back \u2014 and every\n  write is validated against a closed vocabulary before it can become\n  permanent.</li>\n</ul>\n<span class=\"paragraph\"><em>The full account of the theory this implements is\n<code>docs/08-creative-systems-practice.md</code>; the operational cookbook is\n<code>docs/09-agent-runbook.md</code>.</em></span></span>"
+          }
+        }
+      ],
+      "console": []
+    }
+  ]
+}

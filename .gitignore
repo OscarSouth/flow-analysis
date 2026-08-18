@@ -1,0 +1,29 @@
+.env
+data/
+# The memory MCP's mutable working set — personal reflection, promoted into
+# data/notes.jsonl by sync and never committed.
+.claude/memory.jsonl
+# Per-machine Claude Code settings (enabled MCP servers) — local by convention.
+.claude/settings.local.json
+# Raw Apple Health exports. Large (~35 MB zipped, ~750 MB of XML inside), and
+# personal. They are a delivery mechanism, not a store: `flow sync --signals`
+# extracts the workout and body rows into data/signals.jsonl and then purges the
+# file. Nothing here should ever be committed or kept around.
+ingest/
+!ingest/README.md
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+docs/screenshots/*.png
+reports/
+neo4j/
+.dagster_home/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+# Stan compile artefacts: cmdstanpy caches executables beside the model files.
+models/*
+!models/*.stan
+!models/README.md

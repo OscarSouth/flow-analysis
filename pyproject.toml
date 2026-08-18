@@ -1,0 +1,166 @@
+[project]
+name = "flow-analysis"
+version = "0.1.0"
+description = "You gotta go with the flow -- the W.A.T.E.R. system implemented here facilitates that, then proves it with abstract theory."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cmdstanpy>=1.3.0",
+    "dagster>=1.12.18",
+    "dagster-webserver>=1.12.18",
+    "httpx>=0.27",
+    "neo4j>=6.1.0",
+    "numpy>=2.5.2",
+    "polars>=1.0",
+    "pyarrow>=16.0",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.151.9",
+    "mcp-server-dagster>=0.1.2",
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "ruff>=0.15.5",
+    "types-pyyaml>=6.0",
+]
+notebook = [
+    "marimo[mcp]>=0.20.0",
+    "altair>=5.5.0",
+    "vl-convert-python>=1.7",
+    "scipy>=1.15.0",
+    "statsmodels>=0.14.0",
+]
+
+[project.scripts]
+flow = "flow_analysis.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flow_analysis"]
+
+# --- Ruff (linting + formatting) ---
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+# marimo notebooks carry generated structure and underscore-prefixed cell locals
+# that the linter cannot reason about; the dashboard's inline CSS f-string is
+# likewise not ordinary code.
+extend-exclude = ["notebooks", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort (import ordering)
+    "N",     # pep8-naming
+    "UP",    # pyupgrade (modern Python syntax)
+    "B",     # flake8-bugbear (common bugs)
+    "SIM",   # flake8-simplify
+    "TCH",   # flake8-type-checking
+    "RUF",   # ruff-specific rules
+    "C4",    # flake8-comprehensions
+    "PT",    # flake8-pytest-style
+    "RET",   # flake8-return
+    "ANN",   # flake8-annotations (enforce type annotations)
+    "D",     # pydocstyle (docstring conventions)
+]
+ignore = [
+    "D100",   # missing docstring in public module
+    "D104",   # missing docstring in public package
+]
+# The prose in this codebase uses en dashes deliberately — the comments are
+# written to be read. Flagging them as confusable hyphens would trade real
+# typography for a lookalike-character warning that cannot apply to prose.
+allowed-confusables = ["–"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test names are the documentation here, and the docstrings explain *why* a
+# behaviour matters rather than restating the name.
+"tests/*" = ["D103", "ANN001", "ANN201"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Dagster inspects these annotations at run time to resolve resources and config,
+# so moving them into a TYPE_CHECKING block breaks the definitions at load.
+runtime-evaluated-decorators = ["dagster.asset", "dagster.multi_asset", "dagster.op"]
+runtime-evaluated-base-classes = [
+    "dagster.ConfigurableResource",
+    "dagster.ConfigurableIOManager",
+    "pydantic.BaseModel",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# --- mypy (type checking — strict mode) ---
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+extra_checks = true
+
+[[tool.mypy.overrides]]
+module = [
+    "altair.*",
+    "dagster.*",
+    "dagster_webserver.*",
+    "httpx.*",
+    "neo4j.*",
+    "vl_convert.*",
+]
+ignore_missing_imports = true
+
+# --- pytest ---
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-q",
+    "--strict-markers",
+    "--tb=short",
+    # The default suite is offline and needs no credentials, so `just check`
+    # runs anywhere. `just test-integration` opts back in once `just up` has
+    # started Neo4j.
+    "-m",
+    "not integration",
+]
+markers = [
+    "integration: marks tests requiring external services (Neo4j, network)",
+    "slow: marks tests that take more than 5 seconds",
+    "hypothesis: marks property-based tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:dagster.*",
+]
+
+# --- Dagster ---
+
+[tool.dagster]
+module_name = "flow_analysis.definitions"
