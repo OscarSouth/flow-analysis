@@ -59,7 +59,7 @@ def intro(mo):
     | `Stg` | FlowRow, Signal, Note | validated observations, one node per fact |
     | `Enr` | day adherence, similarity edges | what a row cannot know alone |
     | `Fct` | Measure, Posterior, Interpretation | judgements, with their adequacy |
-    | `Meta` | Review, Prescription, Transformation, Hypothesis, GateOpened, DevProposal, Belief, Reference | the practice's record of examining itself |
+    | `Meta` | Review, Prescription, Transformation, Hypothesis, GateOpened, DevProposal, Belief, Reference, Journal | the practice's record of examining itself |
     """)
     return ()
 

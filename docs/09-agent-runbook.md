@@ -57,12 +57,19 @@ untrusted row as a result; never read `not testable yet` as evidence against.
 ### Knowledge entities (from `taxonomy.py`)
 
 `Review` `Interpretation` `Prescription` `Transformation` `Hypothesis`
-`GateOpened` `DevProposal` `Observation` `Belief` `Reference` — labels
-`(:Meta:*)`, `(:Fct:Interpretation)`, `(:Stg:Note)`. Names encode the day:
-`review:2026-08-18:monthly`. Relations: `CONCERNS` `ON_DAY` `FOLLOWS_FROM`
-`TESTS` `PRESCRIBED_BY` `OUTCOME_OF` `ENABLED_BY` and the socratic four —
-`REVISES` (Belief→Belief, the provisionality chain) `CHALLENGES` `SUPPORTS`
-`CITES`. A Belief's `status` is `held`/`revised`/`retired`, never final.
+`GateOpened` `DevProposal` `Observation` `Belief` `Reference` `Journal` —
+labels `(:Meta:*)`, `(:Fct:Interpretation)`, `(:Stg:Note)`. Names encode the
+day: `review:2026-08-18:monthly`. Relations: `CONCERNS` `ON_DAY`
+`FOLLOWS_FROM` `TESTS` `PRESCRIBED_BY` `OUTCOME_OF` `ENABLED_BY` and the
+socratic four — `REVISES` (Belief→Belief, the provisionality chain)
+`CHALLENGES` `SUPPORTS` `CITES`. A Belief's `status` is
+`held`/`revised`/`retired`, never final.
+
+Two relations are **structural** — derived from fields in the post-cypher,
+never agent-declared: `ON_DAY` (from `day:`) and `REFLECTS_ON` (from `day:` +
+`activities: Train, Express`, comma-separated → the day's `(:Stg:FlowRow)`
+state rows). A reflection about a mode *in general* (no specific day) instead
+declares `concerns` → the `(:Dim:Activity)` node by name.
 
 ## 3. Cypher cookbook (read-cypher; all verified live)
 
@@ -105,6 +112,14 @@ RETURN b.date, s.score ORDER BY s.score DESC
 **The DevProposal register:**
 ```cypher
 MATCH (p:Meta:DevProposal) RETURN p.name, p.gate, p.status ORDER BY p.name
+```
+
+**What was said about a mode's days, beside how those days went** (the
+journalling layer — REFLECTS_ON is drawn from the `activities:` field):
+```cypher
+MATCH (j:Meta:Journal)-[:REFLECTS_ON]->(r:Stg:FlowRow {activity: 'Train'})
+RETURN r.day AS day, j.name AS entry, j.note AS note, r.outcome AS outcome
+ORDER BY day
 ```
 
 **Beliefs and their revision chains (the socratic layer, docs/10)** — note the
@@ -165,6 +180,7 @@ sync makes them permanent.
 | conviction surfaced/revised in dialogue | `belief:<day>:<slug>` | day, claim (Oscar's exact words), status (`held`/`revised`/`retired`) |
 | source enters the dialogue | `reference:<day>:<slug>` | day, title, source |
 | dialogue ends in perplexity | `observation:<day>:aporia-<slug>` | day, note |
+| day's practice reflected on (journalling) | `journal:<day>:<slug>` | day, note — plus optional `activities: <Mode>, <Mode>` (draws REFLECTS_ON) and `url:`/`video_id:` (artefact identity for future attribution) |
 
 A revision never edits a belief away: the successor Belief points at its
 predecessor with `revises`, and the predecessor's `status:` line changes to

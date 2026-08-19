@@ -159,18 +159,62 @@ def test_socratic_relations_map_to_graph_types():
         assert mapped["rel_type"] == rel_type
 
 
-def test_every_entity_label_is_covered_by_the_knowledge_cypher():
-    """A first label outside {Meta, Fct, Stg} silently misses every filter.
+def test_every_entity_type_is_covered_by_the_knowledge_cypher_filters():
+    """An entity whose labels miss the filter predicate is written, then lost.
 
-    The knowledge Cypher matches on `n:Meta OR n:Interpretation OR n:Note`, and
-    the schema constrains exactly those labels — so a taxonomy entry with a new
-    top label would be written and then invisible. Pin the invariant here
-    because no runtime path checks it.
+    The knowledge Cypher matches on `n:Meta OR n:Interpretation OR n:Note` —
+    note two of those are *second* labels — and the schema constrains exactly
+    those labels. A taxonomy entry satisfying neither (e.g. `("Fct", "Foo")`)
+    would be placed by apoc.merge.node and then be invisible to every load,
+    link and post-cypher. Pin the real predicate, not a proxy for it, because
+    no runtime path checks this.
     """
     from flow_analysis.taxonomy import ENTITY_TYPES
 
+    filter_labels = {"Meta", "Interpretation", "Note"}
     for entity_type, spec in ENTITY_TYPES.items():
-        assert spec.labels[0] in {"Meta", "Fct", "Stg"}, entity_type
+        assert filter_labels & set(spec.labels), entity_type
+
+
+def test_a_valid_journal_entry_parses_with_activities_promoted():
+    """The optional `activities` line promotes to the REFLECTS_ON join key."""
+    parsed = validate_entity(
+        _entity(
+            name="journal:2026-08-18:first-perfect-day",
+            entityType="Journal",
+            observations=[
+                "day: 2026-08-18",
+                "note: bass practice reviewing an old blog exercise, then a jam",
+                "activities: Train, Express",
+            ],
+        )
+    )
+    assert parsed["labels"] == ["Meta", "Journal"]
+    assert parsed["activities"] == "Train, Express"
+
+
+def test_a_journal_entry_without_a_note_is_refused():
+    with pytest.raises(TaxonomyError, match="note"):
+        validate_entity(
+            _entity(
+                name="journal:2026-08-18:empty",
+                entityType="Journal",
+                observations=["day: 2026-08-18", "activities: Train"],
+            )
+        )
+
+
+def test_reflects_on_is_structural_not_declared():
+    """Derived in the post-cypher from day+activities, like ON_DAY.
+
+    It must be neither agent-declarable nor enumerated in LINKS_LOAD.
+    """
+    from flow_analysis.assets.knowledge import KNOWLEDGE_POST, LINKS_LOAD
+    from flow_analysis.taxonomy import RELATION_TYPES
+
+    assert "REFLECTS_ON" in KNOWLEDGE_POST
+    assert "REFLECTS_ON" not in LINKS_LOAD
+    assert "REFLECTS_ON" not in RELATION_TYPES.values()
 
 
 def test_every_relation_type_is_readable_back_from_the_graph():
@@ -305,6 +349,7 @@ def test_latest_state_wins_in_the_graph_frame(memory_file, tmp_path):
         raw_agent_memory=memory_rows,
         dim_day=pl.DataFrame(),
         fct_measures=pl.DataFrame(),
+        stg_flow_grid=pl.DataFrame(),
     )
     assert frame.height == 1
     assert frame["props"][0]["window"] == "9"

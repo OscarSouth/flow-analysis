@@ -32,7 +32,11 @@ SET node += row.props
 """
 
 # Structural links are derived from fields, not declared by the agent: every
-# dated entity joins the calendar, and anything naming a measure points at it.
+# dated entity joins the calendar, anything naming a measure points at it, and
+# anything naming the day's modes (`activities: Train, Express` — comma-
+# separated) points at those (:Stg:FlowRow) state rows. REFLECTS_ON is
+# structural like ON_DAY: derived here, never agent-declared, excluded from
+# LINKS_LOAD.
 KNOWLEDGE_POST = """
 MATCH (n) WHERE (n:Meta OR n:Interpretation OR n:Note) AND n.day IS NOT NULL
 MATCH (d:Dim:Day {date: n.day})
@@ -41,6 +45,12 @@ WITH DISTINCT 1 AS _
 MATCH (n) WHERE (n:Meta OR n:Interpretation) AND n.measure IS NOT NULL
 MATCH (m:Fct:Measure {name: n.measure})
 MERGE (n)-[:CONCERNS]->(m)
+WITH DISTINCT 1 AS _
+MATCH (n) WHERE (n:Meta OR n:Interpretation OR n:Note)
+  AND n.day IS NOT NULL AND n.activities IS NOT NULL
+UNWIND split(n.activities, ',') AS act
+MATCH (r:Stg:FlowRow {day: n.day, activity: trim(act)})
+MERGE (n)-[:REFLECTS_ON]->(r)
 """
 
 KNOWLEDGE_LOAD = """
@@ -90,6 +100,7 @@ def stg_knowledge(
     raw_agent_memory: list[dict[str, Any]],
     dim_day: pl.DataFrame,
     fct_measures: pl.DataFrame,
+    stg_flow_grid: pl.DataFrame,
 ) -> pl.DataFrame:
     """Place every captured entity under its labels, latest state winning.
 
@@ -105,6 +116,9 @@ def stg_knowledge(
     # MERGE-on-MATCH cannot fail. Caught by purge-and-rebuild on 2026-08-18:
     # four CONCERNS edges present in the live graph, absent after rebuild.
     _ = fct_measures
+    # Same bug class, avoided rather than caught: REFLECTS_ON MATCHes
+    # (:Stg:FlowRow), so the grid must land first.
+    _ = stg_flow_grid
 
     latest: dict[str, dict[str, Any]] = {}
     for row in raw_agent_memory:

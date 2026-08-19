@@ -149,9 +149,9 @@ standing behaviour without a record that it exists.
 **Capture protocol** (the memory MCP is the pen; `flow sync` promotes to the
 archive and graph):
 
-- Vocabulary is **closed** — the ten entity types and ten declarable relations
-  in `taxonomy.py` (`on_day` is structural). Anything else fails the sync
-  loudly, by design.
+- Vocabulary is **closed** — the eleven entity types and ten declarable
+  relations in `taxonomy.py` (`on_day` and `REFLECTS_ON` are structural,
+  derived from fields). Anything else fails the sync loudly, by design.
 - Names encode the day: `review:2026-08-18:monthly`,
   `interp:2026-08-18:coupling`, `devproposal:2026-08-18:<slug>`.
 - Required fields are `key: value` observation lines; free-text lines ride
@@ -160,13 +160,21 @@ archive and graph):
   `Interpretation`s + one `Prescription`); a gate is acted on (`GateOpened`);
   a hypothesis is pre-registered (`Hypothesis`, with its prior); a platform
   limit is hit (`DevProposal`); a change to the practice or platform lands
-  (`Transformation` — **only after Oscar confirms**, because transformations
-  segment every trend); a conviction about the practice is surfaced or revised
+  (`Transformation` — **only after Oscar confirms**; a transformation is a
+  recorded *boundary* for retrospect and analysis, never a break in the flow —
+  no model resets on one, and if a practice-kind boundary ever matters
+  analytically the treatment is soft, changepoint-aware, never a hard
+  segmentation; platform-kind transformations are not analytical boundaries at
+  all); a conviction about the practice is surfaced or revised
   in dialogue (`Belief`, claim in Oscar's exact words; a replacement points at
   its predecessor with `revises` and the predecessor's status becomes
   `revised`); an external source enters the dialogue (`Reference`, linked with
   `cites`); a dialogue ends in honest perplexity
-  (`observation:<day>:aporia-<slug>`); anything contextually significant
+  (`observation:<day>:aporia-<slug>`); Oscar reflects on the day's practice in
+  interactive journalling (`Journal`, with `activities: <Mode>, <Mode>` naming
+  the modes it reflects on — that line draws the `REFLECTS_ON` edges to the
+  day's state rows, and `url:`/`video_id:` lines bank artefact identity);
+  anything contextually significant
   (`Observation`, sparingly — never speculation as observation, never mood as
   measure, never a number the pipeline computes, never a conclusion a gate
   refused).

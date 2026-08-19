@@ -231,7 +231,7 @@ plainly as the object level's:
 
 | meta component | content | realisation |
 |---|---|---|
-| **R_L** | what counts as a legitimate change to the practice: mode membership is fixed; mode *semantics*, traversal habits and evaluation criteria are open; every change is confirmed by the practitioner before it is recorded, because a recorded transformation segments all trend analysis | the interaction contract |
+| **R_L** | what counts as a legitimate change to the practice: mode membership is fixed; mode *semantics*, traversal habits and evaluation criteria are open; every change is confirmed by the practitioner before it is recorded, because a recorded transformation is a dated boundary future analysis must be able to see — recorded for retrospect, never breaking the flow: no model resets on a boundary, and where one matters the treatment is changepoint-aware, not a hard segmentation | the interaction contract |
 | **T_L** | the review cadence — a weekly traversal-level review, a monthly evaluation-level review against pre-registered hypotheses, a quarterly semantics review — with entry conditions decided by a deterministic brief rather than by mood | the review protocol |
 | **E_L** | what makes a change worth making: pre-registered effect margins, evidence gates, posterior decision thresholds, sampler diagnostics | the discipline document and the model priors |
 
@@ -400,6 +400,13 @@ sources are joined by `cites` — so provisionality is a graph shape rather than
 a disclaimer, and the accumulated belief network is a navigable record of how
 the practice's self-understanding evolved.
 
+Interactive journalling gives the loop a first-person voice: a **journal**
+entry is a reflection on the day's practice that binds structurally to the
+day-state rows it reflects on (an `activities:` field draws a `REFLECTS_ON`
+edge to each named mode's row for that day), so "what was said about Train,
+beside how Train actually went" is a single traversal rather than a
+reconciliation of two records.
+
 ### 7.4 The brief
 
 Every engagement opens with a deterministic brief computed from the record:
@@ -504,8 +511,9 @@ never lag-correlated with practice; absence is recorded densely so that a
 system fault can never impersonate a missed day; the record is append-only and
 the graph rebuildable; the agent's own conclusions enter the record through a
 closed, validated vocabulary; and every change to rules, semantics or
-instrument is a dated, confirmed transformation that segments all trend
-analysis crossing it.
+instrument is a dated, confirmed transformation — a boundary every trend
+crossing it can be read against, recorded for retrospect without ever
+breaking the flow.
 
 ## 11. Revision log
 
@@ -513,6 +521,7 @@ analysis crossing it.
 |---|---|---|
 | 0.1.0 | 2026-08-18 | First complete account: CSF formalisation and notation guide; rate-limited extensions; agent-as-T_L and platform development as meta-transformation; measurement architecture; rolling Bayesian layer with gated verdicts; staged-model register; §9 technology-to-theory mapping. |
 | 0.2.0 | 2026-08-18 | The socratic layer: §5.1 dialogue as T_L's traversal (elenchus, maieutics, judged hardness); "all belief is provisional" named as the epistemic ground; Belief/Reference join the knowledge vocabulary (§7.3) with the `revises` chain as structural provisionality; §6.5 cross-reference; socratic sources added to §12. Method in full: `docs/10-socratic-practice.md`. |
+| 0.2.1 | 2026-08-19 | Interactive journalling (§7.3): the `Journal` entity, with structural `REFLECTS_ON` edges binding reflections to the day-state rows they concern. Transformation doctrine softened (§5, §10): a transformation is a recorded boundary for retrospect, never a break in the flow — changepoint-aware treatment where a boundary matters, no hard segmentation. |
 
 Revisions ride the same mechanism they describe: a change to the system that
 alters this account is a platform transformation, and updating the paper is

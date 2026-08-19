@@ -2,9 +2,9 @@
 
 The knowledge layer accumulates the practice's own record of itself: reviews,
 interpretations, prescriptions, transformations, hypotheses, opened gates,
-platform proposals, observations, beliefs, references. Consistency comes from
-this vocabulary being **closed** and validated at capture — an entity outside
-it is refused loudly, never silently stored.
+platform proposals, observations, beliefs, references, journal entries.
+Consistency comes from this vocabulary being **closed** and validated at
+capture — an entity outside it is refused loudly, never silently stored.
 
 In CSF terms (docs/08): Review and Prescription are T_L events, Interpretation
 and Hypothesis are E_L, Transformation records a change to the practice or the
@@ -63,6 +63,11 @@ ENTITY_TYPES: dict[str, EntitySpec] = {
     # without touching knowledge.py or schema.py.
     "Belief": EntitySpec(("Meta", "Belief"), ("day", "claim", "status")),
     "Reference": EntitySpec(("Meta", "Reference"), ("day", "title", "source")),
+    # Interactive journalling (2026-08-19): a first-person reflection on the
+    # day's practice. An optional `activities: Train, Express` line (comma-
+    # separated mode names) earns structural REFLECTS_ON edges to the day's
+    # (:Stg:FlowRow) state rows; an optional `measure:` line earns CONCERNS.
+    "Journal": EntitySpec(("Meta", "Journal"), ("day", "note")),
 }
 
 # The closed relation set, memory relationType -> graph relationship type.
