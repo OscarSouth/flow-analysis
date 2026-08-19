@@ -305,6 +305,19 @@ def test_an_edited_entity_lands_as_a_new_row(memory_file, tmp_path):
         assert len(store.load_notes()) == 2
 
 
+def test_every_sync_variant_promotes_the_memory_working_set():
+    """Plain `flow sync` must snapshot memory, not just `--signals`.
+
+    The capture protocol promises "flow sync promotes"; a selection that
+    omits raw_agent_memory makes stg_knowledge rebuild from the cached
+    previous snapshot — green, silently stale. Caught live on 2026-08-19.
+    """
+    from flow_analysis.orchestration import _select
+
+    assert "raw_agent_memory" in _select(with_signals=False)
+    assert "raw_agent_memory" in _select(with_signals=True)
+
+
 def test_an_invalid_entity_blocks_the_snapshot_loudly(memory_file):
     """Nothing lands until the working set is fixed — permanence demands it."""
     _write_memory(memory_file, [_entity(entityType="Musing")])

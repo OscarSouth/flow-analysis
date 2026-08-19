@@ -1,7 +1,7 @@
 [project]
 name = "flow-analysis"
 version = "0.1.0"
-description = "You gotta go with the flow -- the W.A.T.E.R. system implemented here facilitates that, then proves it with abstract theory."
+description = "You gotta go with the flow -- the W.A.T.E.R. system implemented here facilitates that, then proves it scientifically"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

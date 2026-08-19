@@ -58,6 +58,39 @@ Argue only from evidence that bears on validity:
    describe the system as it exists? If not, list the drift; updating it rides
    the same Transformation records.
 
+## Hindsight audit — were the checkpoints right?
+
+The weekly and monthly reviews read signals at low N; the quarter is when
+those readings are themselves audited. Every `Interpretation` captured this
+quarter is re-read against the data as it now stands — the graph holds daily
+posterior snapshots, so "what was believed then" and "what is believed now"
+are both queryable:
+
+```cypher
+MATCH (i:Fct:Interpretation) WHERE i.day >= $quarter_start
+OPTIONAL MATCH (m:Fct:Measure {name: i.measure})
+OPTIONAL MATCH (pThen:Fct:Posterior {measure: i.measure, day: i.day})
+OPTIONAL MATCH (pNow:Fct:Posterior {measure: i.measure})
+WITH i, m, pThen, pNow ORDER BY pNow.day DESC
+WITH i, m, pThen, collect(pNow)[0] AS pNow
+RETURN i.name AS interp, i.day AS day, i.measure AS measure,
+       m.ok AS gate_ok_now, m.n AS n_now, m.value_json AS value_now,
+       pThen.mean AS mean_then, pNow.mean AS mean_now, pNow.trusted AS trusted_now
+ORDER BY day, interp
+```
+
+Where the measure has a posterior scheme, compare then-vs-now directly; where
+it is a gated diagnostic only (no snapshots), judge the reading against the
+measure's current value. Verdict per interpretation: **held** /
+**overturned** / **still unresolvable** (never count unresolvable as either —
+an untrusted or under-N row settles nothing). An overturned reading gets a
+fresh `Interpretation` linked `follows_from` the old one — same shape as
+belief revision, nothing deleted.
+
+The summary statistic — how many of the quarter's checkpoint readings held —
+is itself a measure of whether the weekly/monthly cadences are catching
+signals or manufacturing them. Report it in the Review.
+
 ## Write
 
 1. **Verdict** per mode: semantics hold, or a specific refinement — exactly
@@ -65,13 +98,17 @@ Argue only from evidence that bears on validity:
 2. **Evidence for**, with numbers and N. 3. **Evidence against**, likewise.
 4. If refining: the consequences. Card titles are a contract — names do not
    change; only the understanding of what belongs under them.
+5. **Hindsight audit result**: held / overturned / unresolvable counts, with
+   the overturned ones named.
 
 ## Capture (after Oscar has seen the review — and any semantics refinement
 only after he confirms it)
 
 - `review:<today>:quarterly` (Review), window 90.
 - `Interpretation`s as in the monthly.
+- Overturned checkpoint readings: a fresh `interp:<today>:<measure>` per
+  overturn, linked `follows_from` the reading it corrects.
 - A confirmed refinement: `transformation:<today>:<slug>` with
   `kind: R-semantics`, `what:`, `confirmed: yes` — **only post-confirmation**;
-  trends segment at this node.
+  the node is a recorded boundary for retrospect, never a break in the flow.
 - DevProposal status updates for anything approved, declined or gated-in.

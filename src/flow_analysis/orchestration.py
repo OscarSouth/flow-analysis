@@ -68,7 +68,12 @@ def _select(with_signals: bool) -> list[str]:
     if with_signals:
         raw = [a.key.to_user_string() for a in RAW_ASSETS]
     else:
-        raw = list(BOARD_ASSETS)
+        # The memory snapshot is a local file read with no API cost, and the
+        # capture protocol promises "flow sync promotes" for every variant.
+        # Without it here, stg_knowledge rebuilds from the *cached* previous
+        # snapshot and reports green while silently stale — seen live on
+        # 2026-08-19 (observation:2026-08-19:plain-sync-skips-memory).
+        raw = [*BOARD_ASSETS, "raw_agent_memory"]
     return raw + [a.key.to_user_string() for a in GRAPH_ASSETS]
 
 
