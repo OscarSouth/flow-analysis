@@ -13,7 +13,7 @@ from .enr import enr_day_adherence
 from .fct import fct_measures
 from .gds import enr_activity_similarity, enr_day_similarity
 from .knowledge import stg_knowledge, stg_knowledge_links
-from .posteriors import fct_posteriors
+from .posteriors import fct_posteriors, raw_posterior_snapshots
 from .raw import RAW_ASSETS
 from .stg import stg_flow_grid, stg_signals
 
@@ -21,7 +21,10 @@ DIM_ASSETS = [dim_day, dim_activity]
 STG_ASSETS = [stg_flow_grid, stg_signals]
 ENR_ASSETS = [enr_day_adherence, enr_activity_similarity, enr_day_similarity]
 KNOWLEDGE_ASSETS = [stg_knowledge, stg_knowledge_links]
-FCT_ASSETS = [fct_measures, fct_posteriors]
+# raw_posterior_snapshots rides with the graph layers although it writes JSONL:
+# it archives what fct_posteriors just computed, so it must run whenever the
+# graph does — including on rebuilds, where its append harmlessly dedupes.
+FCT_ASSETS = [fct_measures, fct_posteriors, raw_posterior_snapshots]
 
 GRAPH_ASSETS = [*DIM_ASSETS, *STG_ASSETS, *ENR_ASSETS, *FCT_ASSETS, *KNOWLEDGE_ASSETS]
 ALL_ASSETS = [*RAW_ASSETS, *GRAPH_ASSETS]

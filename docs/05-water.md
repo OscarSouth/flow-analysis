@@ -94,7 +94,10 @@ See `04-analysis.md` for the schema and `flow report --export`.
 
 The reason to write these down now, before there is data, is to keep later
 analysis honest: it is easy to find a pattern in a habit tracker after the fact.
-These are the questions worth asking, fixed in advance.
+These are the questions worth asking, fixed in advance. **Since 2026-08-19 every
+row of this table is a formal contract** — CSF-typed, rolling, with a
+pre-registered bar — in `metrics/contracts.py`; see `06-diagnostics.md` for the
+registry.
 
 **[06-diagnostics.md](06-diagnostics.md) takes this further**: it names which of
 R, E or T each failure implicates — so the prescription follows from the diagnosis

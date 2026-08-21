@@ -67,7 +67,7 @@ previously, because it exercises the actual saved rule.
 
 ```
 1.  every day at 4:00 am, move each card with the sky "Flow" label
-    not in list "past" to list "drain"
+    to list "drain"
 
 2.  every day at 4:05 am, archive all the cards in list "drain"
 
@@ -156,13 +156,22 @@ and none combines a list with a label:
 | action | why it doesn't work here |
 |---|---|
 | `archive all the cards in list […]` | no label filter → would archive your long-running cards |
-| `archive all the cards with a "…" label` | board-wide → would archive completed cards in `past`, destroying the record |
-| `archive each card marked as complete` | keys off due-date completion, not this workflow |
+| `archive all the cards with a "…" label` | board-wide → would archive the completed-status flag before it is read |
+| `archive each card marked as complete` | keys off due-date completion, which this workflow repurposes as the deep-dive flag |
 
-`move each card […] to list […]` **does** take a composable filter, and its list
-condition has an `in` / **`not in`** toggle. So the sweep is a single negative
-condition — `not in list "past"` — which catches `future` and `present` together
-without naming them.
+`move each card […] to list […]` **does** take a composable filter — a label
+condition on its own, with no list clause at all. So the sweep is one condition:
+the `Flow` label, catching every flow card wherever it sits.
+
+**Amended 2026-08-19.** The rule previously carried `not in list "past"`, which
+spared completed cards and left them pooling on the board. They now drain with
+the rest: the outcome of a day is derived from the *move actions* already in the
+archive, never from where a card sits at 04:00, so draining `past` costs no
+information and keeps the board clean. Butler's editor has no way to delete a
+condition in place — the action was deleted and re-added with a label-only
+filter, which is also why the "can't perform additional actions after a batch
+card copy/move" warning appears if the new action is added before the old one is
+removed.
 
 Then a second constraint bites: **"Can't perform additional actions after a batch
 card copy/move."** A batch move must be the *last* action in a command, so the

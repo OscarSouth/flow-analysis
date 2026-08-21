@@ -93,9 +93,11 @@ signals:
   # Export All Health Data). Re-importing an overlapping export is free: ids are
   # deterministic fingerprints, so the same session never lands twice.
   #
-  # Only explicit workouts and body measurements are read. Step counts, stand
-  # hours and activity rings are deliberately ignored — the watch is worn while
-  # exercising or out of the house, so daily totals are missing-not-at-random.
+  # Explicit workouts, body measurements and each workout's heart-rate series
+  # are read (the series feeds the provisional intensity features in
+  # metrics/embodiment.py). Step counts, stand hours and activity rings are
+  # deliberately ignored — the watch is worn while exercising or out of the
+  # house, so daily totals are missing-not-at-random.
   health:
     directory: "ingest"
 

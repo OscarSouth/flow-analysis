@@ -124,5 +124,31 @@ def test_render_on_a_full_history_carries_numbers_not_dicts(full):
     text = ev.render(ev.build(cfg, rows, production, [], window=28))
 
     assert "{'" not in text, "a raw dict reached the rendered pack"
-    assert "Pre-registered hypotheses" in text
+    assert "The contracts" in text
     assert "Nothing here is causal" in text
+
+
+def test_contracts_render_grouped_with_verdicts(full):
+    """Every registry contract appears, under its CSF component heading."""
+    from flow_analysis.metrics.contracts import REGISTRY
+
+    cfg, rows, production = full
+    text = ev.render(ev.build(cfg, rows, production, [], window=28))
+    for contract in REGISTRY:
+        assert contract.title in text, contract.key
+    for component in {c.component for c in REGISTRY}:
+        assert f"### {component}" in text
+
+
+def test_standing_run_counts_consecutive_latest_verdicts():
+    history = [
+        {"measure": "contract:c9_publication_rate", "day": d, "verdict": v}
+        for d, v in [
+            ("2026-08-10", "inconclusive"),
+            ("2026-08-11", "supported"),
+            ("2026-08-12", "supported"),
+            ("2026-08-13", "supported"),
+        ]
+    ]
+    assert ev._standing_run(history, "contract:c9_publication_rate") == 3
+    assert ev._standing_run(history, "contract:c1_allocation_failure") == 0

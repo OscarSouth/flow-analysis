@@ -155,31 +155,39 @@ def header(F, diag, fabricated, mo):
 @app.cell
 def _preregistered_header(mo):
     mo.md("""
-    ## Pre-registered hypotheses
+    ## The contracts
 
-    "
-        "Committed to publicly in article 05, before any data existed. Tested as "
-        "published, not reworded to whatever the numbers happen to support.
+    The registry (`metrics/contracts.py`, reworked 2026-08-19): every row of
+    the diagnostic table as a falsifiable, CSF-typed, rolling contract —
+    registered before the data that will test it. Deterministic verdicts
+    render here; posterior contract verdicts live on the daily snapshot and
+    render in the posterior chapter below.
     """)
     return
 
 
 @app.cell
 def preregistered(diag, mo):
-    _labels = {
-        "h1_train_most_never_started": "**H1** — Train is the most frequent never-started",
-        "h2_express_slowest_to_start": "**H2** — Express carries the longest delay to first touch",
-        "h3_write_carries_the_others": "**H3** — days Write is missed show lower completion elsewhere",
-    }
+    from flow_analysis.metrics.contracts import REGISTRY
+
     _lines = []
-    for _key, _label in _labels.items():
-        _m = diag["measures"][_key]
-        if not _m.ok:
-            _lines.append(f"- {_label}\n    - *underpowered*: N={_m.n}, needs {_m.needs}")
+    for _c in REGISTRY:
+        _m = diag["measures"].get(_c.key)
+        _label = f"**{_c.title}** [{_c.component}] — {_c.claim}"
+        if _m is None or not _m.ok:
+            _n = _m.n if _m is not None else 0
+            _needs = _m.needs if _m is not None else _c.needs
+            _lines.append(
+                f"- {_label}\n    - *not testable yet*: N={_n}, needs {_needs}"
+            )
+        elif _c.kind == "deterministic":
+            _lines.append(
+                f"- {_label}\n    - **{_m.value['verdict']}** against {_c.bar}"
+            )
         else:
-            _verdict = "**supported**" if _m.value["supported"] else "**not supported**"
-            _rest = {k: v for k, v in _m.value.items() if k != "supported"}
-            _lines.append(f"- {_label}\n    - {_verdict} — `{_rest}`")
+            _lines.append(
+                f"- {_label}\n    - gate met — verdict on `{_c.measure}` below"
+            )
     mo.md("\n".join(_lines))
     return
 

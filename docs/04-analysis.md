@@ -224,9 +224,28 @@ inside the zip, so it is streamed with `iterparse` and cleared element by elemen
 Ids are deterministic fingerprints of `(type, start, value)`, so re-importing an
 overlapping export costs nothing.
 
-**Only explicit workouts and body measurements are read.** Step counts, stand
-hours and activity rings are excluded: the watch is worn while exercising or out
-of the house, so daily totals are missing-not-at-random.
+**Explicit workouts, body measurements and each workout's heart-rate series are
+read.** Step counts, stand hours and activity rings are excluded: the watch is
+worn while exercising or out of the house, so daily totals are
+missing-not-at-random.
+
+The heart-rate series (added 2026-08-21, devproposal:2026-08-21:
+workout-intensity) lands as one `workout_hr` row per workout, paired 1:1 by the
+workout's own fingerprint. HR records are top-level in the XML and precede the
+Workouts, so the parse is two-pass: windows first, then the series, matched by
+time window. The series is dense (~5 s cadence, 1,000+ samples) only for
+sessions the watch itself tracked; other workouts carry a handful of background
+readings, and the per-session statistics Apple embeds in the Workout element
+(average/min/max HR, METs, active energy) ride the same row and speak for them.
+The intensity features (`metrics/embodiment.py`: active span from first to last
+sample at ≥70% of that session's max; mean/min within the span; capped
+time-in-zone for cardio; refused below 30 samples or above a 60 s median
+inter-sample gap) are computed at read time from the archived series, so the
+provisional definitions can be revised without a fresh export. Measured on the
+2026-08-21 import: 273 `workout_hr` rows, 15 of them usable — all 2026, the
+watch-tracked era. The density gate earned its place immediately: a
+forgotten-running 34-hour "hike" carried 85 background samples and drew a
+2,058-minute active span on the first rendered surface.
 
 Two findings from the first real import, 2026-08-17:
 

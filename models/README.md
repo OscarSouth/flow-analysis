@@ -15,3 +15,8 @@ used.
 | `adherence_hierarchical.stan` | per-mode completion with partial pooling — is this mode different? | pooling is the honest answer to 5 modes × small N |
 | `latency_survival.stan` | time-to-start within the day, censored at the drain | the survival plateau IS the allocation-failure probability |
 | `cumulative_cascade.stan` | count intensity over long windows against cumulative history | practice→production allowed with the confounding caveat; production→reception **cumulative horizons only**, never event-lag |
+| `poisson_rate.stan` | event rate per month over a trailing window (the c9 cadence floor) — its posterior mean must match the Gamma-Poisson closed form | rates from weeks of data are noise; the contract gates at 90 flow-era days |
+
+The statistical contracts (c1–c5, c9 in `metrics/contracts.py`) are served by
+these models over trailing windows; the registry holds windows, gates and
+margins.

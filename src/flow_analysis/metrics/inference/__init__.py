@@ -14,18 +14,28 @@ from .engine import FitResult, run_model
 from .prep import (
     adherence_data,
     cascade_data,
+    completion_arm,
     contrast_data,
     day_window_minutes,
+    outcome_counts,
     survival_data,
 )
-from .summarise import prob_greatest, prob_threshold, summarise_draws
+from .summarise import (
+    prob_any_leader,
+    prob_greatest,
+    prob_threshold,
+    summarise_draws,
+)
 
 __all__ = [
     "FitResult",
     "adherence_data",
     "cascade_data",
+    "completion_arm",
     "contrast_data",
     "day_window_minutes",
+    "outcome_counts",
+    "prob_any_leader",
     "prob_greatest",
     "prob_threshold",
     "run_model",

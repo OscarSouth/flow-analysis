@@ -271,8 +271,8 @@ def test_snapshot_ids_are_stable_and_dedupe(memory_file, tmp_path):
         again = raw_assets.raw_agent_memory(context=build_asset_context())
         assert [r["id"] for r in first.rows] == [r["id"] for r in again.rows]
 
-        added = store.append_notes(first.rows, store.known_note_ids())
-        added_again = store.append_notes(again.rows, store.known_note_ids())
+        added = store.append_notes(first.rows, store.note_state())
+        added_again = store.append_notes(again.rows, store.note_state())
     assert added == 1
     assert added_again == 0
 
@@ -283,7 +283,7 @@ def test_an_edited_entity_lands_as_a_new_row(memory_file, tmp_path):
     with store.redirect(tmp_path / "data"):
         store.append_notes(
             raw_assets.raw_agent_memory(context=build_asset_context()).rows,
-            store.known_note_ids(),
+            store.note_state(),
         )
         _write_memory(
             memory_file,
@@ -300,7 +300,7 @@ def test_an_edited_entity_lands_as_a_new_row(memory_file, tmp_path):
         )
         store.append_notes(
             raw_assets.raw_agent_memory(context=build_asset_context()).rows,
-            store.known_note_ids(),
+            store.note_state(),
         )
         assert len(store.load_notes()) == 2
 
@@ -316,6 +316,23 @@ def test_every_sync_variant_promotes_the_memory_working_set():
 
     assert "raw_agent_memory" in _select(with_signals=False)
     assert "raw_agent_memory" in _select(with_signals=True)
+
+
+def test_preflight_refuses_before_any_write_when_the_graph_is_down(monkeypatch):
+    """Zero writes beats half: a dead graph stops the sync up front.
+
+    Without this, the raw fetch lands and the graph assets then fail one by
+    one, leaving half-written state (broke rebuild equivalence 2026-08-19).
+    """
+    from flow_analysis import orchestration
+
+    class DeadDriver:
+        def driver(self) -> None:
+            raise ConnectionRefusedError("connection refused")
+
+    monkeypatch.setitem(orchestration.defs.resources, "neo4j", DeadDriver())
+    with pytest.raises(RuntimeError, match="just up"):
+        orchestration.preflight()
 
 
 def test_an_invalid_entity_blocks_the_snapshot_loudly(memory_file):

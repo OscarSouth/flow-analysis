@@ -27,12 +27,23 @@ One-off machine provisioning: Docker, `uv sync --all-groups`,
 ### `(:Fct:Measure)` — the gated diagnostics (from `metrics/diagnostics.py`)
 
 `allocation_vs_capacity` · `dormancy` · `charge` · `coupling` ·
-`adherence_without_production` · `aberration` ·
-`h1_train_most_never_started` · `h2_express_slowest_to_start` ·
-`h3_write_carries_the_others`
+`adherence_without_production` · `aberration` — plus one row per **contract**
+(`c1_…` .. `c9_…`): deterministic contracts (c6–c8) carry their verdict here;
+posterior contracts (c1–c5, c9) carry only their gate state, with the verdict
+on the posterior snapshot.
 
 Each carries `ok` (cleared its gate), `n`, `needs`, `value_json`,
 `detail_json`. A measure with `ok: false` is a refusal — a result, never a gap.
+
+### The contract registry (`metrics/contracts.py`, reworked 2026-08-19)
+
+Nine falsifiable, CSF-typed, rolling contracts mirroring the diagnostic
+table — failure-positive (healthy = refuted) except c9, the health-positive
+publication-cadence floor. Windows, gates, margins and prescriptions live in
+`REGISTRY`; the full table is in `docs/06-diagnostics.md`. A rolling verdict
+is *standing* only after 7 consecutive snapshot days (`PERSISTENCE_DAYS`);
+prescriptions attach only to standing verdicts. The old H1–H3 were
+superseded by this registry (H1→c1 generalised, H3→c5, H2 retired).
 
 ### `(:Fct:Posterior)` — daily posterior snapshots, one row per (measure, day)
 
@@ -42,7 +53,7 @@ Each carries `ok` (cleared its gate), `n`, `needs`, `value_json`,
 | `adherence:<Mode>` | per-mode completion rate (pooled θ) |
 | `latency_median:<Mode>` | median minutes to first touch, censoring-aware |
 | `p_never_started:<Mode>` | the survival plateau — allocation-failure probability |
-| `prereg:h1_…/h2_…/h3_…` | the published hypotheses as posterior probabilities |
+| `contract:c1_…` .. `contract:c9_…` | the statistical contracts, each over its own trailing window |
 | `cascade:production~commitment` | windowed production vs cumulative adherence (confounded, always say so) |
 
 Every row carries `mean`, `median`, `ci_low`, `ci_high` (central 90%),
@@ -53,6 +64,29 @@ Every row carries `mean`, `median`, `ci_low`, `ci_high` (central 90%),
 `not supported` (P ≤ 0.10) · `inconclusive` (between) · **`not testable yet`**
 (below its N-gate *or* the sampler's diagnostics failed). Never read an
 untrusted row as a result; never read `not testable yet` as evidence against.
+
+### Workout intensity (2026-08-21, devproposal:2026-08-21:workout-intensity)
+
+Not a posterior and not a contract — **visibility only**, rendered in `flow
+report`'s embodiment block. Each workout's heart-rate series is archived as a
+`(:Stg:Signal {kind: 'workout_hr'})` row (parallel `hr_offsets_s` / `hr_bpm`
+arrays, paired 1:1 with its workout by fingerprint; Apple's per-session
+statistics — `hr_avg_session`, `hr_min_session`, `hr_max_session`, `avg_mets`,
+`active_kcal` — ride the same row). Features are computed at read time in
+`metrics/embodiment.py` and every constant is **provisional by design**,
+revisable in dialogue because the raw series is archived:
+
+- active span = first to last sample at ≥70% of *that session's* max
+  (`WORKING_HR_FRACTION`) — self-calibrating across Oscar's varied patterns;
+- mean/min HR taken across every sample inside the span (rests between sets
+  are the point);
+- `elevated_minutes` = capped time-in-zone (`DWELL_CAP_S`), cardio's measure;
+- features refused below 30 samples (`MIN_SERIES_SAMPLES`) — the export's
+  series is dense only where the watch tracked the session, and a span drawn
+  through background samples would be a confident answer the data cannot
+  carry. Session statistics still speak for those workouts.
+
+No trend language until a trend question is pre-registered and N-gated.
 
 ### Knowledge entities (from `taxonomy.py`)
 
@@ -112,6 +146,15 @@ RETURN b.date, s.score ORDER BY s.score DESC
 **The DevProposal register:**
 ```cypher
 MATCH (p:Meta:DevProposal) RETURN p.name, p.gate, p.status ORDER BY p.name
+```
+
+**Deep-dive days** (the completed-status checkbox on card fronts, repurposed:
+Oscar flags a mode he doubled up on or dove deep into, judged at flag time.
+Orthogonal to outcome by decision — `deep` + `abandoned_in_progress` is a real
+state. Retroactive flags attribute to the card's day, not the flag's date):
+```cypher
+MATCH (r:Stg:FlowRow) WHERE r.deep
+RETURN r.day AS day, r.activity AS activity, r.outcome AS outcome ORDER BY day
 ```
 
 **What was said about a mode's days, beside how those days went** (the
@@ -187,7 +230,22 @@ predecessor with `revises`, and the predecessor's `status:` line changes to
 `revised`. `challenges`/`supports` link evidence to a Belief; `cites` links
 anything to a Reference.
 
-## 7. Incident checklist (self-healing)
+## 7. Durability procedures
+
+- **The archive is the truth for everything**, including knowledge history
+  (`data/notes.jsonl` — every state, reverts included) and posterior
+  snapshots (`data/posteriors.jsonl` — replayed into the graph on every
+  run, so purge-and-rebuild reproduces the full ridgeline history).
+- **The memory working set** (`.claude/memory.jsonl`) is the MCP-owned
+  fast store. `brief` raises a health item when it is missing entities the
+  archive holds. `flow memory restore` rebuilds it losslessly (refuses a
+  non-empty file without `--force`; run `flow sync` first so unarchived
+  captures are not overwritten). A running MCP server may need a session
+  restart to see the rebuilt file.
+- Deletion after a sync is permanent in the archive and graph; retraction
+  is `status: retired`.
+
+## 8. Incident checklist (self-healing)
 
 On any operational anomaly — failed asset, `brief` health items, a surface
 raising, drift, a query in this runbook failing:

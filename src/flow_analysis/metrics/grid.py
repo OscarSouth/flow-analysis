@@ -50,6 +50,13 @@ class FlowRow:
     pull_rank: int | None = None
     # How many other flow cards were already in `present` when this one started.
     interleaved: int | None = None
+    # The completed-status checkbox, repurposed as a deep-dive flag: Oscar marks
+    # a card he doubled up on or dove deep into, judged at the moment of
+    # flagging (like Reveal significance). Orthogonal to outcome by decision —
+    # deep + abandoned is a real state, or deep engagement would be penalised
+    # by the higher bar to completion. Retroactive flags attribute to the
+    # card's own day, never the flag's date.
+    deep: bool = False
 
     @property
     def failure_kind(self) -> str | None:
@@ -119,6 +126,14 @@ def _transitions(
                     "to_list_id": data["listAfter"].get("id"),
                     "closed": False,
                     "kind": "move",
+                }
+            elif "dueComplete" in (data.get("old") or {}):
+                entry = {
+                    "at": action["date"],
+                    "to_list_id": None,
+                    "closed": False,
+                    "kind": "flag",
+                    "deep": bool(card.get("dueComplete")),
                 }
             elif "closed" in (data.get("old") or {}) or card.get("closed") is not None:
                 entry = {
@@ -191,18 +206,31 @@ def fold_rows(
         key = (day.isoformat(), card["name"])
 
         started_at = completed_at = archived_at = None
+        deep: bool | None = None
         for event in events.get(card_id, []):
             if event["kind"] == "archive" and event["closed"] and archived_at is None:
                 archived_at = event["at"]
+            if event["kind"] == "flag":
+                # Toggles replay in time order, so the last state wins — an
+                # unflag is a correction, not history to preserve.
+                deep = event["deep"]
             if event["to_list_id"] == present_id and started_at is None:
                 started_at = event["at"]
             if event["to_list_id"] == past_id and completed_at is None:
                 completed_at = event["at"]
 
         # A card sitting in Out with no recorded move (e.g. history predates the
-        # store) still counts as complete.
+        # store) still counts as complete. Note this net no longer catches
+        # anything current: since 2026-08-19 the drain sweeps `past` too, so a
+        # card only rests there between completion and 04:00. Completion now
+        # depends on the move action being captured — which `sync.integrity()`
+        # guards by exiting non-zero on any gap in the action history.
         if completed_at is None and card.get("idList") == past_id:
             completed_at = card.get("observed_at")
+        # Same fallback for the flag: a snapshot that carries dueComplete with
+        # no observed toggle action still counts.
+        if deep is None:
+            deep = bool(card.get("dueComplete"))
 
         if completed_at:
             outcome = COMPLETED
@@ -223,6 +251,7 @@ def fold_rows(
             archived_at=archived_at,
             minutes_to_start=_minutes(spawned_iso, started_at),
             minutes_to_complete=_minutes(spawned_iso, completed_at),
+            deep=deep,
         )
 
         # Duplicate (day, activity) can happen if a card was made by hand as well

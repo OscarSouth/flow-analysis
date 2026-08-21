@@ -57,6 +57,29 @@ def _instance() -> Iterator[DagsterInstance]:
         yield instance
 
 
+def preflight() -> None:
+    """Confirm every platform component a sync writes to is reachable, first.
+
+    A sync that dies mid-run leaves the graph half-written: the raw fetch
+    lands in JSONL, then the graph assets fail one by one, and the leftover
+    state broke rebuild equivalence on 2026-08-19 (Docker daemon down). The
+    graph layers are part of every sync by decision, so refuse before the
+    first write rather than failing loudly in the middle — zero writes beats
+    half. `verify_connectivity` also catches a wrong password, which would
+    otherwise fail in exactly the same mid-run way.
+    """
+    resource = (defs.resources or {})["neo4j"]
+    try:
+        with resource.driver() as driver:
+            driver.verify_connectivity()
+    except Exception as exc:
+        raise RuntimeError(
+            "Neo4j is unreachable — every sync writes the graph layers, so "
+            "nothing was run. Start it with `just up` (and the Docker daemon "
+            f"if that fails), then re-run. Underlying error: {exc}"
+        ) from exc
+
+
 def _select(with_signals: bool) -> list[str]:
     """Which assets a given `flow sync` invocation covers.
 
@@ -93,6 +116,7 @@ def materialise_raw(
     days only, so losing an unrelated stream to one lapsed credential would cost
     data that cannot be re-fetched.
     """
+    preflight()
     selected = _select(with_signals)
     with _instance() as instance:
         result = materialize(

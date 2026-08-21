@@ -67,6 +67,12 @@ class BriefInputs:
     # archive signal count vs graph signal count — must agree after a sync
     archive_signals: int = 0
     graph_signals: int = 0
+    # knowledge entity names: the archive's current state vs the MCP-owned
+    # working set. Divergence is legitimate transiently (a deletion before
+    # the next sync) but a missing or shrunken working set is silent data
+    # loss on the recall side — the archive itself is unaffected.
+    archive_entity_names: set[str] = field(default_factory=set)
+    working_set_entity_names: set[str] = field(default_factory=set)
     # assets that failed in the most recent sync run
     last_sync_failed: list[str] = field(default_factory=list)
     now: datetime = field(default_factory=lambda: datetime.now().astimezone())
@@ -187,6 +193,15 @@ def health(inputs: BriefInputs) -> list[str]:
         items.append(
             f"{len(inputs.untrusted_today)} untrusted posterior(s) today — "
             "expected while N is small; an incident once gates have opened"
+        )
+    missing = inputs.archive_entity_names - inputs.working_set_entity_names
+    if missing:
+        items.append(
+            f"memory working set missing {len(missing)} archived entit(ies) "
+            f"({len(inputs.working_set_entity_names)} present, "
+            f"{len(inputs.archive_entity_names)} archived) — deletion before "
+            "a sync is sanctioned; loss is not. `flow memory restore` "
+            "rebuilds the working set from the archive"
         )
     return items
 

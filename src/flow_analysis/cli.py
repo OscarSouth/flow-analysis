@@ -159,6 +159,25 @@ def cmd_sync(args: argparse.Namespace) -> int:
     return 0 if report.get("ok") and not failed else 1
 
 
+def cmd_memory_restore(args: argparse.Namespace) -> int:
+    """Rebuild the memory MCP's working set from the archive.
+
+    The archive is the truth; the working set is the MCP-owned fast store.
+    Lossless by construction — observations are archived verbatim — so a
+    re-snapshot of the restored file appends nothing.
+    """
+    entities, relations = raw_assets.restore_working_set(force=args.force)
+    print(
+        f"Restored {entities} entit(ies) and {relations} relation(s) to "
+        f"{raw_assets.MEMORY_FILE}"
+    )
+    print(
+        "Note: a running memory MCP server may need a session restart to "
+        "pick up the rebuilt file."
+    )
+    return 0
+
+
 def cmd_auth(args: argparse.Namespace) -> int:
     """Capture a credential without it passing through the shell.
 
@@ -408,6 +427,8 @@ def cmd_brief(args: argparse.Namespace) -> int:
         untrusted_today=untrusted,
         archive_signals=len(store.known_signal_ids()),
         graph_signals=loaders.signals_frame().height,
+        archive_entity_names=set(store.latest_notes(store.load_notes())),
+        working_set_entity_names=raw_assets.working_set_entity_names(),
         last_sync_failed=orchestration.last_run_failures(),
     )
     result = brief_mod.build(inputs)
@@ -512,9 +533,15 @@ def cmd_evidence(args: argparse.Namespace) -> int:
 
     posterior_frame = pl.DataFrame() if args.fixture else loaders.posteriors()
     snapshot: list[dict[str, object]] = []
+    contract_history: list[dict[str, object]] = []
     if not posterior_frame.is_empty():
         last_day = posterior_frame["day"].max()
         snapshot = posterior_frame.filter(pl.col("day") == last_day).to_dicts()
+        # The persistence rule reads verdict runs across snapshot days, so the
+        # contract rows travel with their whole history, not just today.
+        contract_history = posterior_frame.filter(
+            pl.col("measure").str.starts_with("contract:")
+        ).to_dicts()
     pack = evidence_mod.build(
         cfg,
         rows,
@@ -522,6 +549,7 @@ def cmd_evidence(args: argparse.Namespace) -> int:
         loaders.signal_dicts(),
         snapshot,
         window=args.window,
+        contract_history=contract_history,
     )
     if args.json:
         print(json.dumps(pack, indent=2, default=str))
@@ -625,6 +653,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="also pull external production signal (forum posts)",
     )
     p.set_defaults(func=cmd_sync)
+
+    p = sub.add_parser("memory", help="working-set tooling for the memory MCP's file")
+    memory_sub = p.add_subparsers(dest="memory_command", required=True)
+    restore = memory_sub.add_parser(
+        "restore",
+        help="rebuild .claude/memory.jsonl from the archive's current state",
+    )
+    restore.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite a non-empty working set (otherwise refused)",
+    )
+    restore.set_defaults(func=cmd_memory_restore)
 
     p = sub.add_parser("auth", help="store a credential securely in .env")
     p.add_argument(

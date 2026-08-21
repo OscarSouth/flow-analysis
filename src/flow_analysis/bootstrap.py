@@ -165,14 +165,27 @@ def apply(client: TrelloClient, cfg: Config, adopt: str | None = None) -> list[A
 def safety_check(client: TrelloClient, cfg: Config) -> dict[str, Any]:
     """Report what the purge rule would touch right now.
 
-    The purge archives cards in In/Progressing *carrying the Flow label*. This
-    lists them, and — more importantly — lists the unlabelled cards in those same
-    lists that must survive. Read this before enabling the rule.
+    The purge archives every card *carrying the Flow label*, wherever it sits.
+    This lists them, and — more importantly — lists the unlabelled cards in the
+    same lists that must survive. Read this before enabling the rule.
+
+    Watches all four lists since 2026-08-19: rule 1 dropped its
+    `not in list "past"` condition, so completed cards drain too (their
+    outcomes are already derived from the move actions in the archive). A
+    checker modelling the old rule would under-report the blast radius, which
+    is the one thing this command exists to prevent.
     """
     board_id = cfg.require_board()
     label_id = cfg.require_label()
     lists = cfg.require_lists()
-    watched = {lists["future"].id: "future", lists["present"].id: "present"}
+    watched = {
+        lists["future"].id: "future",
+        lists["present"].id: "present",
+        lists["past"].id: "past",
+    }
+    drain = lists.get("drain")
+    if drain is not None:
+        watched[drain.id] = "drain"
 
     would_archive: list[dict[str, Any]] = []
     would_survive: list[dict[str, Any]] = []

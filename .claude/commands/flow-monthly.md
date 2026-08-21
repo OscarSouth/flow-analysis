@@ -1,5 +1,5 @@
 ---
-description: Monthly flow review — the pre-registered hypotheses and the diagnostic table
+description: Monthly flow review — the contract registry and the diagnostic table
 allowed-tools: Bash(uv run flow sync:*), Bash(uv run flow brief:*), Bash(uv run flow evidence:*), Bash(uv run flow report:*), Read, mcp__memory__create_entities, mcp__memory__create_relations, mcp__neo4j__read-cypher
 ---
 
@@ -27,12 +27,15 @@ RETURN r.name, i.measure, i.reading ORDER BY r.name DESC LIMIT 12
 
 Five sections, in order.
 
-**1. The three pre-registered hypotheses.** Report each exactly as published in
-article 05. Verdicts are Bayesian (see `docs/06-diagnostics.md` for the priors
-and decision thresholds) and three-way: **supported / not supported /
-inconclusive**, with the posterior probability, the pre-registered bar, and the
-posterior interval stated. Where the posterior layer is not yet built or a
-measure remains under-powered, report the stored verdict and its N honestly.
+**1. The contract registry.** Report every contract in
+`metrics/contracts.py`, grouped by CSF component (the health view). Verdicts
+are Bayesian for the statistical contracts and four-way: **supported / not
+supported / inconclusive / not testable yet**, with the posterior
+probability, the registered bar, and the interval stated; deterministic
+contracts (c6–c8) report their fact. Colour by health, not verdict — c9 is
+health-positive. A verdict is *standing* only after 7 consecutive snapshot
+days; prescription language only for standing verdicts. Where a measure
+remains under-powered, report the gate honestly.
 
 **2. Which rows of the diagnostic table fire.** For each: the imbalance, the
 CSF mode, the component at fault (**R**, **E** or **T**), the prescription. The

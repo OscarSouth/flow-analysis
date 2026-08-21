@@ -30,6 +30,7 @@ import polars as pl
 
 from .metrics import diagnostics as dx
 from .metrics import frames as fr
+from .metrics.contracts import REGISTRY
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -319,29 +320,40 @@ def _both_themes(build: Callable[[Theme], alt.Chart]) -> str:
 
 
 def _hypotheses(diag: dict[str, Any]) -> str:
-    labels = {
-        "h1_train_most_never_started": "Train is the most frequent never-started",
-        "h2_express_slowest_to_start": (
-            "Express carries the longest delay to first touch"
-        ),
-        "h3_write_carries_the_others": (
-            "Days Write is missed show lower completion elsewhere"
-        ),
+    """The contract registry as a table.
+
+    Deterministic verdicts render inline; posterior contracts show their gate
+    state here (verdicts live on the posterior snapshot, in the evidence
+    surface). Colour is health, not verdict: c9's floor is health-positive,
+    so `supported` is green there and red would be wrong.
+    """
+    css = {
+        "supported": "yes",
+        "inconclusive": "watch",
+        "not supported": "no",
+        "not testable yet": "pending",
     }
     rows = []
-    for key, label in labels.items():
-        measure = diag["measures"][key]
-        if not measure.ok:
-            verdict = (
-                '<span class="pending">not testable yet — '
-                f"{measure.n} of {measure.needs}</span>"
-            )
-        else:
-            # Three outcomes: the middle one is a direction that holds by too
-            # small a margin to mean anything, which is neither win nor loss.
-            css = {"supported": "yes", "inconclusive": "watch", "not supported": "no"}
+    for contract in REGISTRY:
+        measure = diag["measures"].get(contract.key)
+        label = f"{contract.title} [{contract.component}]"
+        if measure is None or not measure.ok:
+            n = measure.n if measure is not None else 0
+            needs = measure.needs if measure is not None else contract.needs
+            verdict = f'<span class="pending">not testable yet — {n} of {needs}</span>'
+        elif contract.kind == "deterministic":
             state = measure.value["verdict"]
-            verdict = f'<span class="{css[state]}">{html.escape(state)}</span>'
+            healthy = state == contract.healthy_verdict
+            klass = (
+                ("yes" if healthy else css.get(state, "watch"))
+                if state != "not testable yet"
+                else "pending"
+            )
+            if not healthy and state in {"supported", "not supported"}:
+                klass = "no"
+            verdict = f'<span class="{klass}">{html.escape(state)}</span>'
+        else:
+            verdict = '<span class="pending">gate met — see evidence</span>'
         rows.append(f"<tr><td>{html.escape(label)}</td><td>{verdict}</td></tr>")
     return f"<table><tbody>{''.join(rows)}</tbody></table>"
 

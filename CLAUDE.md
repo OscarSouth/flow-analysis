@@ -179,7 +179,12 @@ archive and graph):
   measure, never a number the pipeline computes, never a conclusion a gate
   refused).
 - A wrong capture is fixed in the working set (edit or delete the memory
-  entity) **before** the next sync makes it permanent.
+  entity) **before** the next sync makes it permanent. After a sync,
+  retraction is semantic (`status: retired`), never deletion — the archive
+  is the truth and the graph derives from it. The working set is the
+  MCP-owned fast store: if it is ever lost or diverges, `brief` raises a
+  health item and `flow memory restore` rebuilds it losslessly from the
+  archive.
 - The five W.A.T.E.R. modes are **fixed by decision**. `Transformation.kind`
   is `R-semantics`, `T`, `E` or `platform` — there is no R-membership change,
   and the taxonomy enforces that.
@@ -196,9 +201,16 @@ in a working directory, and `data/signals.jsonl` already holds everything
 extracted. `ingest/` is gitignored, but do not rely on that alone.
 
 **The tradeoff, so it is a decision rather than an accident:** the export carries
-far more than is extracted — heart rate, energy, distance, sleep. Purging means a
-*new* metric needs a *fresh* export rather than a re-parse. Right trade while only
-workouts and body mass are read; revisit if that changes.
+more than is extracted — sleep, energy and distance series among it. Purging means
+a *new* metric needs a *fresh* export rather than a re-parse. Heart rate crossed to
+the extracted side on 2026-08-21 (devproposal:2026-08-21:workout-intensity): each
+workout's HR series is archived as a `workout_hr` row, two-pass parsed and matched
+by time window, so the provisional intensity definitions in `metrics/embodiment.py`
+can be revised without a fresh export. The series is dense only for sessions the
+watch itself tracked (~5 s cadence); other workouts carry a handful of background
+samples, so the feature layer refuses them and the per-session statistics Apple
+embeds in the Workout element — riding the same row — speak instead. The trade
+stands for the rest; revisit if that changes.
 
 Re-importing an overlapping export is free — ids are deterministic fingerprints.
 
@@ -260,7 +272,7 @@ argument; the caller owns where it came from.
 
 | store | role |
 |---|---|
-| `data/*.jsonl` | **The archive. The truth.** Append-only, dedupes on id, gitignored. The only copy of history older than Trello's 1,000-action export cap. |
+| `data/*.jsonl` | **The archive. The truth.** Append-only, dedupes on id, gitignored. The only copy of history older than Trello's 1,000-action export cap — including every state each knowledge entity has passed through (`notes.jsonl`) and every daily posterior snapshot (`posteriors.jsonl`). |
 | Neo4j | **Derived — and the sole analysis source.** Every surface (`report`, `evidence`, `publish`, the notebook, `brief`) reads the graph through `graph/loaders.py`; nothing reads JSONL for analysis, because two paths over the same data eventually disagree. `tests/test_repoint_equivalence.py` holds both paths equivalent. Docker is therefore **always required**: `flow sync` materialises the whole DAG, and a down graph fails loudly rather than reporting zeros. |
 
 **The graph is fully rebuildable from the archive** — purge, rematerialize
@@ -373,8 +385,11 @@ recreates the laptop dependency the whole thing was built to avoid.
 ## 7. Analytics discipline
 
 **Hypotheses are pre-registered.** Write them in `docs/06-diagnostics.md`, dated,
-*before* running the analysis that examines them. Three are committed to publicly
-in article 05 and must be tested as published. Finding a flattering pattern after
+*before* running the analysis that examines them. The live set is the **contract
+registry** (`metrics/contracts.py`, reworked 2026-08-19): every diagnostic-table
+row as a rolling, CSF-typed, falsifiable contract, judged four-way with
+per-contract windows, gates and margins — tested as registered, and article 05
+commits publicly to the registry as a whole. Finding a flattering pattern after
 the fact is trivially easy and worth nothing.
 
 **Every metric and plot is N-gated.** Five binary-ish outcomes a day is thin;

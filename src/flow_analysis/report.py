@@ -11,6 +11,7 @@ from collections import defaultdict
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from .metrics.contracts import REGISTRY
 from .metrics.grid import COMPLETED, FlowRow, to_dicts
 from .util import parse_iso, to_local
 
@@ -300,19 +301,21 @@ def render_diagnostics(result: dict[str, Any]) -> str:
                 f"{longest[0]} at {longest[1]['longest']} days"
             )
 
-    lines += ["", "Pre-registered hypotheses (article 05):"]
-    for key, label in (
-        ("h1_train_most_never_started", "H1 Train most never-started"),
-        ("h2_express_slowest_to_start", "H2 Express slowest to start"),
-        ("h3_write_carries_the_others", "H3 Write carries the others"),
-    ):
-        measure = measures[key]
-        if not measure.ok:
-            lines.append(
-                f"  {label:<32} underpowered (N={measure.n}, needs {measure.needs})"
-            )
+    # The contracts: deterministic verdicts inline; posterior contracts show
+    # their gate here (the verdicts live on the posterior snapshot, rendered
+    # by `flow evidence` and the posterior block below).
+    lines += ["", "Contracts (registry in metrics/contracts.py):"]
+    for contract in REGISTRY:
+        measure = measures.get(contract.key)
+        label = f"{contract.title} [{contract.component}]"
+        if measure is None or not measure.ok:
+            n = measure.n if measure is not None else 0
+            needs = measure.needs if measure is not None else contract.needs
+            lines.append(f"  {label:<40} not testable yet (N={n}, needs {needs})")
+        elif contract.kind == "deterministic":
+            lines.append(f"  {label:<40} {measure.value['verdict']}")
         else:
-            lines.append(f"  {label:<32} {measure.value['verdict']}")
+            lines.append(f"  {label:<40} gate met — see posterior snapshot")
 
     # These three carry structured values. Printing the dict is faster to write
     # and slower to read, and this output exists to be read at a glance.

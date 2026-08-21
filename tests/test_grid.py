@@ -197,6 +197,90 @@ def test_grid_is_dense_across_the_span(data_dir):
     assert {r.outcome for r in missing} == {grid.NEVER_APPEARED}
 
 
+def flag_action(cid: str, activity: str, at: datetime, *, deep: bool, aid: str):
+    """A completed-status toggle, as Trello records it (dueComplete old/new)."""
+    return {
+        "id": aid,
+        "type": "updateCard",
+        "date": at.isoformat().replace("+00:00", "Z"),
+        "data": {
+            "card": {"id": cid, "name": activity, "dueComplete": deep},
+            "old": {"dueComplete": not deep},
+        },
+    }
+
+
+def test_deep_flag_lands_on_the_cards_own_day(data_dir):
+    """Retroactive flags attribute to the card's day, never the flag's date.
+
+    The checkbox is a deep-dive judgment made whenever Oscar gets to it —
+    the day after, from the archive — so attribution must ride card identity.
+    Deep is orthogonal to outcome by decision: deep + abandoned is a real
+    state, or deep engagement is penalised by the higher bar to completion.
+    """
+    day = date(2026, 8, 10)
+    plan = {(day, "Absorb"): "completed", (day, "Write"): "started"}
+    cards, actions = build_history([day], plan)
+    by_name = {c["name"]: c["id"] for c in cards}
+    next_day = spawn_moment(day + timedelta(days=1), hour=12)
+    for aid, name in [("f1", "Absorb"), ("f2", "Write")]:
+        actions.append(flag_action(by_name[name], name, next_day, deep=True, aid=aid))
+    seed(data_dir, cards, actions)
+
+    rows = {
+        r.activity: r
+        for r in grid.fold_rows(
+            make_config(day), store.load_cards_latest(), store.load_actions()
+        )
+        if r.day == day.isoformat()
+    }
+    assert rows["Absorb"].deep
+    assert rows["Absorb"].outcome == grid.COMPLETED
+    assert rows["Write"].deep
+    assert rows["Write"].outcome == grid.ABANDONED
+    assert not rows["Train"].deep
+
+
+def test_deep_flag_latest_toggle_wins(data_dir):
+    """An unflag is a correction — the row reflects the current judgment."""
+    day = date(2026, 8, 10)
+    cards, actions = build_history([day], {})
+    cid = next(c["id"] for c in cards if c["name"] == "Train")
+    on = spawn_moment(day, hour=20)
+    actions.append(flag_action(cid, "Train", on, deep=True, aid="f1"))
+    actions.append(
+        flag_action(cid, "Train", on + timedelta(minutes=5), deep=False, aid="f2")
+    )
+    seed(data_dir, cards, actions)
+
+    rows = {
+        r.activity: r
+        for r in grid.fold_rows(
+            make_config(day), store.load_cards_latest(), store.load_actions()
+        )
+    }
+    assert not rows["Train"].deep
+
+
+def test_deep_flag_falls_back_to_the_card_snapshot(data_dir):
+    """A snapshot carrying dueComplete with no observed toggle still counts."""
+    day = date(2026, 8, 10)
+    cards, actions = build_history([day], {})
+    for card in cards:
+        if card["name"] == "Express":
+            card["dueComplete"] = True
+    seed(data_dir, cards, actions)
+
+    rows = {
+        r.activity: r
+        for r in grid.fold_rows(
+            make_config(day), store.load_cards_latest(), store.load_actions()
+        )
+    }
+    assert rows["Express"].deep
+    assert not rows["Write"].deep
+
+
 def test_unlabelled_cards_are_ignored(data_dir):
     day = date(2026, 8, 10)
     cards, actions = build_history([day], {})

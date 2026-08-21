@@ -47,6 +47,21 @@ def prob_greatest(
     return out
 
 
+def prob_any_leader(draws_by_name: dict[str, np.ndarray], margin: float = 1.0) -> float:
+    """P(some quantity exceeds all others by `margin`), judged per draw.
+
+    The c1/c2 contract form: "a persistent leader exists". The leader is
+    found within each draw and tested there — naming the point-estimate
+    leader first and then scoring it would be a selection effect, quietly
+    inflating the probability whenever any mode happens to be ahead.
+    """
+    stacked = np.vstack(
+        [np.asarray(draws, dtype=float).ravel() for draws in draws_by_name.values()]
+    )
+    top = np.sort(stacked, axis=0)
+    return float(np.mean(top[-1] > margin * top[-2]))
+
+
 def as_row(
     measure: str,
     day: str,

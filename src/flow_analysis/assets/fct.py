@@ -21,6 +21,7 @@ import polars as pl
 from dagster import AssetExecutionContext, asset
 
 from ..metrics import diagnostics as dx
+from ..metrics.contracts import CONTRACT_KEYS
 from ..metrics.grid import FlowRow
 from ..resources import FlowConfigResource
 
@@ -48,16 +49,10 @@ RETURN m.name AS name, m.ok AS ok, m.n AS n, m.needs AS needs,
 ORDER BY m.name
 """
 
-# The three committed to publicly in article 05, before any data existed. They
-# are tested exactly as published — finding a flattering pattern afterwards is
-# trivially easy and worth nothing.
-PREREGISTERED = frozenset(
-    {
-        "h1_train_most_never_started",
-        "h2_express_slowest_to_start",
-        "h3_write_carries_the_others",
-    }
-)
+# Contract measures carry the flag: registered before the data that will test
+# them, per the discipline in docs/06-diagnostics.md. The registry is the one
+# source of the set (metrics/contracts.py, reworked 2026-08-19).
+PREREGISTERED = CONTRACT_KEYS
 
 
 @asset(

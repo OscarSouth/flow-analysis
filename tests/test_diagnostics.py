@@ -159,44 +159,63 @@ def test_fewer_than_three_pairs_is_not_a_correlation():
     assert dx._pearson([1.0, 2.0], [3.0, 4.0]) is None
 
 
-# --- pre-registered hypotheses ---------------------------------------------
+# --- the contracts ------------------------------------------------------------
 
 
-def test_preregistered_hypotheses_are_tested_as_published(full):
-    cfg, rows, _ = full
-    results = dx.preregistered(rows, cfg.activities)
-    assert set(results) == {
-        "h1_train_most_never_started",
-        "h2_express_slowest_to_start",
-        "h3_write_carries_the_others",
-    }
-    for measure in results.values():
-        assert measure.ok
-        # Three outcomes, never two: a direction that holds by a margin too
-        # small to mean anything is inconclusive, not a win.
-        assert measure.value["verdict"] in {
-            "supported",
-            "inconclusive",
-            "not supported",
-        }
+def test_run_all_carries_every_contract(full):
+    """Every registry entry surfaces as a measure.
 
-
-def test_a_hair_thin_lead_is_inconclusive_not_supported():
-    """H3 on a 1-point gap must not read as confirmation.
-
-    Regression: the verdict was `with_write > without_write`, so any positive
-    gap at all counted — which is how a habit tracker confirms whatever you
-    hoped it would.
+    Deterministic verdicts inline; posterior contracts as gate-state rows
+    pointing at the graph.
     """
-    assert dx._verdict(direction_holds=True, big_enough=False) == "inconclusive"
-    assert dx._verdict(direction_holds=True, big_enough=True) == "supported"
-    assert dx._verdict(direction_holds=False, big_enough=True) == "not supported"
+    from flow_analysis.metrics.contracts import REGISTRY
+
+    cfg, rows, production = full
+    measures = dx.run_all(cfg, rows, production)["measures"]
+    for contract in REGISTRY:
+        assert contract.key in measures, contract.key
+        measure = measures[contract.key]
+        if contract.kind == "posterior" and measure.ok:
+            assert measure.value["see"] == contract.measure
 
 
-def test_preregistered_report_underpowered_on_thin_data(thin):
-    cfg, rows, _ = thin
-    results = dx.preregistered(rows, cfg.activities)
-    assert all(not m.ok for m in results.values())
+def test_deterministic_contracts_speak_the_four_way_vocabulary(full):
+    cfg, rows, production = full
+    measures = dx.run_all(cfg, rows, production)["measures"]
+    for key in (
+        "c6_dormancy_escalation",
+        "c7_harmonious_stagnation",
+        "c8_productive_aberration",
+    ):
+        measure = measures[key]
+        if measure.ok:
+            assert measure.value["verdict"] in {"supported", "not supported"}
+
+
+def test_dormancy_escalation_contract_fires_on_a_21_day_closure():
+    """c6 is deterministic: a three-week closed channel is a fact."""
+    from datetime import date, timedelta
+
+    from flow_analysis.metrics.grid import FlowRow
+
+    start = date(2026, 1, 1)
+    rows = []
+    for i in range(25):
+        day = (start + timedelta(days=i)).isoformat()
+        rows.append(FlowRow(day=day, activity="Train", outcome="never_started"))
+        rows.append(FlowRow(day=day, activity="Write", outcome="completed"))
+    measure = dx.contract_dormancy_escalation(rows, ["Write", "Train"])
+    assert measure.ok
+    assert measure.value["verdict"] == "supported"
+    assert measure.value["escalated"] == ["Train"]
+
+
+def test_posterior_contract_gates_refuse_on_thin_data(thin):
+    cfg, rows, production = thin
+    measures = dx.run_all(cfg, rows, production)["measures"]
+    gate = measures["c1_allocation_failure"]
+    assert not gate.ok
+    assert gate.needs > gate.n
 
 
 # --- pull order -------------------------------------------------------------

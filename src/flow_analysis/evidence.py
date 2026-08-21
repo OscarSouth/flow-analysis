@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from .metrics import diagnostics as dx
+from .metrics.contracts import PERSISTENCE_DAYS, REGISTRY, Contract
 from .metrics.grid import (
     ABANDONED,
     COMPLETED,
@@ -221,6 +222,7 @@ def build(
     signal_rows: Sequence[dict[str, Any]],
     posterior_rows: Sequence[dict[str, Any]] = (),
     window: int = 28,
+    contract_history: Sequence[dict[str, Any]] = (),
 ) -> dict[str, Any]:
     """The pack. Windowed where a window makes sense, full-history where it does not."""
     activities = list(cfg.activities)
@@ -257,11 +259,111 @@ def build(
         "completions_in_window": completions,
         "reception": reception_mod.summarise(cfg, signal_rows),
         "posteriors": posterior_rows,
+        "contract_history": contract_history,
         "underpowered": diag["underpowered"],
     }
 
 
 # --- rendering --------------------------------------------------------------
+
+
+def _standing_run(history: Sequence[dict[str, Any]], measure: str) -> int:
+    """Consecutive latest snapshot days carrying the same verdict.
+
+    The anti-flapping input: a rolling verdict is *standing* only once the
+    run reaches PERSISTENCE_DAYS. Computed from posterior history at render
+    time, never stored.
+    """
+    mine = sorted(
+        (r for r in history if r.get("measure") == measure and r.get("verdict")),
+        key=lambda r: r["day"],
+        reverse=True,
+    )
+    if not mine:
+        return 0
+    latest = mine[0]["verdict"]
+    run = 0
+    for row in mine:
+        if row["verdict"] != latest:
+            break
+        run += 1
+    return run
+
+
+def _contract_lines(measures: dict[str, dx.Measure], pack: dict[str, Any]) -> list[str]:
+    """The contracts, grouped by the CSF component each one implicates.
+
+    A supported failure-positive contract is a diagnosis with a Wiggins
+    prescription attached; the healthy state is the claim staying refuted.
+    Prescription language appears only once a verdict is standing.
+    """
+    posterior_by_measure = {r.get("measure"): r for r in pack.get("posteriors") or []}
+    history = pack.get("contract_history") or []
+
+    lines = ["", "## The contracts — the registry, judged", ""]
+    by_component: dict[str, list[Contract]] = {}
+    for contract in REGISTRY:
+        by_component.setdefault(contract.component, []).append(contract)
+
+    for component in sorted(by_component):
+        lines.append(f"### {component}")
+        lines.append("")
+        for contract in by_component[component]:
+            verdict, detail = _contract_state(contract, measures, posterior_by_measure)
+            healthy = verdict == contract.healthy_verdict
+            run = _standing_run(history, contract.measure)
+            standing = (
+                verdict in {"supported", "not supported"} and run >= PERSISTENCE_DAYS
+            )
+            marker = "healthy" if healthy else "attention"
+            line = f"- **{contract.title}** ({contract.csf_mode}): **{verdict}**"
+            if verdict != "not testable yet":
+                line += f" [{marker}]"
+                if standing:
+                    line += f" — standing ({run} consecutive days)"
+                elif run:
+                    line += f" — {run} day(s) at this verdict, standing at "
+                    line += f"{PERSISTENCE_DAYS}"
+            if detail:
+                line += f" — {detail}"
+            lines.append(line)
+            if standing and not healthy:
+                lines.append(f"  - prescription: {contract.prescription}")
+        lines.append("")
+    return lines[:-1]
+
+
+def _contract_state(
+    contract: Contract,
+    measures: dict[str, dx.Measure],
+    posterior_by_measure: dict[str, dict[str, Any]],
+) -> tuple[str, str]:
+    """One contract's current verdict and a short detail string."""
+    if contract.kind == "posterior":
+        row = posterior_by_measure.get(contract.measure)
+        if row is None:
+            measure = measures.get(contract.key)
+            gate = (
+                f"N={measure.n}, needs {measure.needs}"
+                if measure is not None
+                else "no snapshot"
+            )
+            return "not testable yet", gate
+        probability = row.get("probability")
+        prob = f"P={probability:.2f}" if probability is not None else ""
+        return str(row.get("verdict") or "not testable yet"), (
+            f"{prob} against {contract.bar}" if prob else contract.bar
+        )
+    measure = measures.get(contract.key)
+    if measure is None or not measure.ok:
+        gate = (
+            f"N={measure.n}, needs {measure.needs}"
+            if measure is not None
+            else "missing"
+        )
+        return "not testable yet", gate
+    value = measure.value or {}
+    return str(value.get("verdict") or "not testable yet"), contract.bar
 
 
 def _short(measure: dx.Measure, bare: bool = False) -> str:
@@ -431,46 +533,7 @@ def render(pack: dict[str, Any]) -> str:
     else:
         lines.append(f"- **Productive aberration**: {_short(ab, bare=True)}")
 
-    lines += ["", "## Pre-registered hypotheses", ""]
-    for key, label in (
-        (
-            "h1_train_most_never_started",
-            "H1 — Train is the most frequent never-started",
-        ),
-        (
-            "h2_express_slowest_to_start",
-            "H2 — Express carries the longest delay to first touch",
-        ),
-        (
-            "h3_write_carries_the_others",
-            "H3 — days Write is missed show lower completion elsewhere",
-        ),
-    ):
-        measure = measures[key]
-        if not measure.ok:
-            lines.append(
-                f"- {label}: **not testable yet** (N={measure.n}, needs "
-                f"{measure.needs})"
-            )
-            continue
-        value = measure.value
-        if key == "h3_write_carries_the_others":
-            detail = (
-                f"{value['with_write']:.0%} elsewhere on days Write was done vs "
-                f"{value['without_write']:.0%} on the {value['n_missed_days']} days it "
-                f"was "
-                f"missed — a {value['gap']:+.0%} gap against a {value['min_gap']:.0%} "
-                f"bar"
-            )
-        else:
-            numbers = value.get("counts") or value.get("medians") or {}
-            detail = (
-                f"leader {value['leader']}, ahead of the runner-up by "
-                f"{value['lead_over_runner_up']:.0%} against a {value['min_lead']:.0%} "
-                f"bar "
-                f"({', '.join(f'{k} {v}' for k, v in numbers.items())})"
-            )
-        lines.append(f"- {label}: **{value['verdict']}** — {detail}")
+    lines += _contract_lines(measures, pack)
 
     lines += [
         "",

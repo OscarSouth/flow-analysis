@@ -45,6 +45,42 @@ def adherence_data(grid: pl.DataFrame, activities: list[str]) -> dict[str, Any]:
     return {"M": len(activities), "n": n, "k": k}
 
 
+def outcome_counts(
+    grid: pl.DataFrame, activities: list[str], outcome: str
+) -> dict[str, Any]:
+    """Per-mode trials and counts of one outcome, for the hierarchical model.
+
+    The generalisation behind the c1/c2 contracts: the same pooled-rate
+    machinery as `adherence_data`, pointed at a failure outcome
+    (never_started for allocation, abandoned_in_progress for capacity)
+    instead of at completion.
+    """
+    observed = grid.filter(pl.col("outcome") != NEVER_APPEARED)
+    n, k = [], []
+    for activity in activities:
+        mine = observed.filter(pl.col("activity") == activity)
+        n.append(mine.height)
+        k.append(mine.filter(pl.col("outcome") == outcome).height)
+    return {"M": len(activities), "n": n, "k": k}
+
+
+def completion_arm(grid: pl.DataFrame, activity: str) -> dict[str, Any]:
+    """One mode's completion trials, as a beta-binomial arm.
+
+    Two of these make a divergence contract (c3/c4): fit each arm, subtract
+    the draws, and the posterior of the gap is the contrast.
+    """
+    mine = grid.filter(
+        (pl.col("activity") == activity) & (pl.col("outcome") != NEVER_APPEARED)
+    )
+    return {
+        "n": mine.height,
+        "k": mine.filter(pl.col("outcome") == COMPLETED).height,
+        "prior_a": 1.0,
+        "prior_b": 1.0,
+    }
+
+
 def survival_data(grid: pl.DataFrame, activity: str, t_max: float) -> dict[str, Any]:
     """One mode's censored time-to-start.
 

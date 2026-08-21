@@ -269,9 +269,21 @@ def raw_agent_memory(context: AssetExecutionContext) -> RawStream:
     from ..taxonomy import validate_entity, validate_relation
 
     if not MEMORY_FILE.exists():
-        context.log.info(
-            "no memory working set at %s — nothing to promote", MEMORY_FILE
-        )
+        from .. import store
+
+        archived = len(store.latest_notes(store.load_notes()))
+        if archived:
+            context.log.warning(
+                "memory working set missing at %s while %d entit(ies) are "
+                "archived — the graph is unaffected, but MCP recall is empty; "
+                "`flow memory restore` rebuilds the file",
+                MEMORY_FILE,
+                archived,
+            )
+        else:
+            context.log.info(
+                "no memory working set at %s — nothing to promote", MEMORY_FILE
+            )
         return RawStream()
 
     import json
@@ -293,6 +305,84 @@ def raw_agent_memory(context: AssetExecutionContext) -> RawStream:
         rows.append({"id": _note_id(payload), "captured_at": captured_at, **payload})
     context.log.info("snapshot: %d note(s) from the memory working set", len(rows))
     return RawStream(rows=rows)
+
+
+def working_set_entity_names() -> set[str]:
+    """Entity names currently in the MCP working set; empty if the file is gone.
+
+    Tolerant by design — this feeds the brief's drift check, which must be
+    able to describe a corrupt file rather than crash on it.
+    """
+    import json
+
+    if not MEMORY_FILE.exists():
+        return set()
+    names: set[str] = set()
+    for line in MEMORY_FILE.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if item.get("type") == "entity" and item.get("name"):
+            names.add(item["name"])
+    return names
+
+
+def restore_working_set(force: bool = False) -> tuple[int, int]:
+    """Rebuild `.claude/memory.jsonl` from the archive's current state.
+
+    The archive keeps observations verbatim, so the round-trip is lossless:
+    a re-snapshot of the restored file appends nothing. Returns (entities,
+    relations) written. Refuses to overwrite a non-empty working set unless
+    forced — the working set may hold captures newer than the archive.
+    """
+    import json
+
+    from .. import store
+    from ..taxonomy import RELATION_TYPES
+
+    if MEMORY_FILE.exists() and MEMORY_FILE.read_text().strip() and not force:
+        raise RuntimeError(
+            f"{MEMORY_FILE} is not empty — restoring would overwrite captures "
+            "that may not be archived yet. Run `flow sync` first, then "
+            "`flow memory restore --force`."
+        )
+
+    notes = store.load_notes()
+    entities = store.latest_notes(notes)
+    relations = store.relation_notes(notes)
+    to_relation_key = {upper: lower for lower, upper in RELATION_TYPES.items()}
+
+    lines = [
+        json.dumps(
+            {
+                "type": "entity",
+                "name": row["name"],
+                "entityType": row["entity_type"],
+                "observations": row["observations"],
+            },
+            sort_keys=True,
+        )
+        for row in entities.values()
+    ]
+    lines += [
+        json.dumps(
+            {
+                "type": "relation",
+                "from": row["from_name"],
+                "to": row["to_name"],
+                "relationType": to_relation_key[row["rel_type"]],
+            },
+            sort_keys=True,
+        )
+        for row in relations
+    ]
+    MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    MEMORY_FILE.write_text("\n".join(lines) + ("\n" if lines else ""))
+    return len(entities), len(relations)
 
 
 RAW_ASSETS = [

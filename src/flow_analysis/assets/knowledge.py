@@ -20,6 +20,8 @@ from typing import Any
 import polars as pl
 from dagster import AssetExecutionContext, asset
 
+from .. import store
+
 GROUP = "meta"
 
 # apoc.merge.node takes the label list per row, which is what lets one asset
@@ -120,10 +122,11 @@ def stg_knowledge(
     # (:Stg:FlowRow), so the grid must land first.
     _ = stg_flow_grid
 
-    latest: dict[str, dict[str, Any]] = {}
-    for row in raw_agent_memory:
-        if row.get("note_kind") == "entity":
-            latest[row["name"]] = row
+    # The reduction is shared with the archive readers (store.latest_notes),
+    # so the graph and `flow memory restore` cannot diverge on what "current
+    # state" means — and it sorts by captured_at rather than trusting file
+    # order.
+    latest = store.latest_notes(raw_agent_memory)
 
     rows = []
     for note in latest.values():

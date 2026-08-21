@@ -58,7 +58,11 @@ def _append_signals(rows: list[dict[str, Any]]) -> int:
 
 
 def _append_notes(rows: list[dict[str, Any]]) -> int:
-    return store.append_notes(rows, store.known_note_ids())
+    return store.append_notes(rows, store.note_state())
+
+
+def _append_posteriors(rows: list[dict[str, Any]]) -> int:
+    return store.append_posteriors(rows, store.known_posterior_ids())
 
 
 # Paths are read through lambdas rather than captured at import: `store.redirect`
@@ -87,5 +91,11 @@ STREAMS: dict[str, Stream] = {
         append=_append_notes,
         load=store.load_notes,
         path=lambda: store.NOTES_PATH,
+    ),
+    "posteriors": Stream(
+        name="posteriors",
+        append=_append_posteriors,
+        load=store.load_posteriors,
+        path=lambda: store.POSTERIORS_PATH,
     ),
 }

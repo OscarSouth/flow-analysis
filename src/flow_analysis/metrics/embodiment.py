@@ -37,6 +37,35 @@ STALE_AFTER_DAYS = 21
 # Body mass moves a kilo on water alone, so a single reading is noise.
 SMOOTH_DAYS = 28
 
+# --- workout intensity (provisional, by design) -------------------------------
+#
+# Oscar's measure, operationalised 2026-08-21 (devproposal:2026-08-21:
+# workout-intensity): active span = first to last sample at or above a working
+# threshold, judged against that session's own max so it survives his varied
+# workout patterns. Both constants are PROVISIONAL — the raw series is archived
+# precisely so these can be revised in dialogue without a fresh export.
+WORKING_HR_FRACTION = 0.70
+
+# A sample's dwell is the gap to the next sample, capped so sparse background
+# sampling cannot inflate time-in-zone. In-workout cadence is ~5 s; a gap past
+# the cap means the watch was not really watching.
+DWELL_CAP_S = 60
+
+# Features are refused below this many samples, and below this sampling
+# density. Measured on the 2026-08-21 export the real distribution splits
+# cleanly: watch-tracked sessions sample every ~5 s, background readings
+# minutes apart — and rendering the first cut of this surface showed why count
+# alone is not enough: a forgotten-running 34-hour "hike" carried 85
+# background samples and drew a 2,058-minute active span. A span drawn through
+# background samples is a confident answer to a question the series cannot
+# carry. The session statistics on the same row still speak for refused
+# workouts.
+MIN_SERIES_SAMPLES = 30
+MAX_MEDIAN_GAP_S = 60
+
+# Per-session intensity lines shown on the surface.
+RECENT_SESSIONS = 5
+
 
 def _embodiment(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return [r for r in rows if row_tier(r) == TIER_EMBODIMENT]
@@ -84,6 +113,102 @@ def workout_coverage(
         "last": stamps[-1][:10],
         "days_since": days_since,
         "stale": days_since > STALE_AFTER_DAYS,
+    }
+
+
+def intensity(offsets_s: Sequence[int], bpm: Sequence[int]) -> dict[str, Any] | None:
+    """Per-session intensity features from one workout's heart-rate series.
+
+    Active span runs from the first to the last sample at or above the working
+    threshold (70% of this session's max — self-calibrating, so a heavy short
+    session and a long light one are each judged against themselves), measured
+    as *observed* time: the sum of capped inter-sample dwells between the
+    endpoints, not their raw difference. A dense burst followed by hours of
+    background silence — the forgotten-running hike again — would otherwise
+    stretch the span across time the watch never watched. Mean and min are
+    taken across *every* sample inside the span: the rests between sets are
+    exactly what the measure exists to see.
+
+    `elevated_minutes` is time-in-zone across the whole session, each sample
+    dwelling until the next (capped, so sparse sampling cannot inflate it; the
+    final sample contributes nothing rather than a guess).
+
+    Returns None below `MIN_SERIES_SAMPLES` samples or above a median
+    inter-sample gap of `MAX_MEDIAN_GAP_S` — sparse background readings are a
+    real series but not a *usable* one, and refusing is the honest output.
+    """
+    n = len(bpm)
+    if n < MIN_SERIES_SAMPLES or len(offsets_s) != n:
+        return None
+    gaps = sorted(offsets_s[i + 1] - offsets_s[i] for i in range(n - 1))
+    if gaps[len(gaps) // 2] > MAX_MEDIAN_GAP_S:
+        return None
+    peak = max(bpm)
+    threshold = peak * WORKING_HR_FRACTION
+    above = [i for i, v in enumerate(bpm) if v >= threshold]
+    first, last = above[0], above[-1]
+    in_span = bpm[first : last + 1]
+    elevated_s = sum(
+        min(offsets_s[i + 1] - offsets_s[i], DWELL_CAP_S)
+        for i in range(n - 1)
+        if bpm[i] >= threshold
+    )
+    active_s = sum(
+        min(offsets_s[i + 1] - offsets_s[i], DWELL_CAP_S) for i in range(first, last)
+    )
+    return {
+        "samples": n,
+        "threshold_bpm": round(threshold),
+        "peak_bpm": peak,
+        "active_minutes": round(active_s / 60, 1),
+        "hr_mean_active": round(sum(in_span) / len(in_span), 1),
+        "hr_min_active": min(in_span),
+        "elevated_minutes": round(elevated_s / 60, 1),
+    }
+
+
+def intensity_sessions(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Chronological per-session intensity, from the archived HR series.
+
+    Sessions whose series was pruned from the export still appear when Apple's
+    embedded session statistics survived — features are None there, the
+    statistics carry what is known.
+    """
+    out = []
+    for row in _embodiment(rows):
+        if row.get("kind") != "workout_hr" or not row.get("created_at"):
+            continue
+        features = intensity(row.get("hr_offsets_s") or [], row.get("hr_bpm") or [])
+        out.append(
+            {
+                "day": row["created_at"][:10],
+                "activity": row.get("activity"),
+                "strength": bool(row.get("strength")),
+                "features": features,
+                "hr_avg_session": row.get("hr_avg_session"),
+                "hr_max_session": row.get("hr_max_session"),
+                "avg_mets": row.get("avg_mets"),
+            }
+        )
+    return sorted(out, key=lambda r: r["day"])
+
+
+def intensity_summary(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Coverage plus the most recent sessions — visibility, never a trend.
+
+    Coverage is stated against the total workout count so the absence of a
+    series stays a fact about the export's retention, not about the body.
+    """
+    sessions = intensity_sessions(rows)
+    workouts = sum(1 for r in _embodiment(rows) if r.get("kind") == "workout")
+    with_features = [s for s in sessions if s["features"]]
+    return {
+        "workouts": workouts,
+        "with_stats": len(sessions),
+        "with_features": len(with_features),
+        # The recent *usable* sessions: a surface line per background-sampled
+        # workout would be noise wearing a number.
+        "recent": with_features[-RECENT_SESSIONS:],
     }
 
 
@@ -208,6 +333,7 @@ def summarise(cfg: Config, rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
         else None,
         "by_month": workouts_by_month(all_rows),
         "coverage": workout_coverage(all_rows),
+        "intensity": intensity_summary(all_rows),
         "mass": body_trend(all_rows, "body_mass"),
         "fat": body_trend(all_rows, "body_fat"),
     }
@@ -255,6 +381,29 @@ def render(summary: dict[str, Any]) -> str:
                 "  the same as the body having been. Treat the series as stale "
                 "until it resumes.",
             ]
+
+    intense = summary.get("intensity") or {}
+    if intense.get("with_stats"):
+        lines += [
+            "",
+            f"  Intensity — usable HR series on {intense['with_features']} of "
+            f"{intense['workouts']} sessions (dense only where",
+            "  the watch itself tracked the session; the rest carry background "
+            "samples and per-session",
+            "  statistics). Active span = first to last sample at "
+            f"≥{int(WORKING_HR_FRACTION * 100)}% of that session's max —",
+            "  a provisional definition, revisable from the archived series.",
+        ]
+        for s in intense["recent"]:
+            f = s["features"]
+            detail = (
+                f"span {f['active_minutes']}m, avg {f['hr_mean_active']}"
+                f" / min {f['hr_min_active']} bpm, peak {f['peak_bpm']}"
+            )
+            if not s["strength"]:
+                detail += f", elevated {f['elevated_minutes']}m"
+            mets = f", {s['avg_mets']:.1f} METs" if s.get("avg_mets") else ""
+            lines.append(f"    {s['day']}  {s['activity']}: {detail}{mets}")
 
     months = summary["by_month"]
     if months:

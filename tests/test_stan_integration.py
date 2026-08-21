@@ -26,6 +26,24 @@ def test_stan_reproduces_the_conjugate_posterior():
     assert abs(posterior["mean"] - closed_form) < 0.01
 
 
+def test_poisson_rate_reproduces_the_conjugate_posterior():
+    """Gamma(2,2) prior + 5 events in 3 months has posterior Gamma(7, 5).
+
+    Same calibration logic as the beta-binomial: the sampler must land on
+    the closed form, mean (a + y) / (b + t) = 7/5 = 1.4 events/month.
+    """
+    fit = run_model(
+        "poisson_rate",
+        {"y": 5, "exposure_months": 3.0, "prior_a": 2.0, "prior_b": 2.0},
+    )
+    assert fit.trusted, (fit.rhat_max, fit.ess_min, fit.divergences)
+    posterior = summarise_draws(fit.draws["lambda"])
+    # Gamma(7,5) has sd ≈ 0.53, so Monte-Carlo error on the mean is ~0.015
+    # at this ESS — the tolerance is ~3 MCSE, not the beta model's 0.01
+    # (whose posterior is far narrower).
+    assert abs(posterior["mean"] - 1.4) < 0.05
+
+
 def test_hierarchical_model_pools_thin_modes_toward_the_practice():
     """Pooling is the point of the hierarchy.
 
@@ -52,7 +70,7 @@ def test_todays_posterior_snapshot_is_in_the_graph():
     last = frame.filter(frame["day"] == frame["day"].max())
     measures = set(last["measure"].to_list())
     assert "adherence:practice" in measures
-    assert any(m.startswith("prereg:") for m in measures)
+    assert any(m.startswith("contract:") for m in measures)
     # every row carries its diagnostics
     assert last["rhat_max"].null_count() == 0
     assert last["trusted"].null_count() == 0

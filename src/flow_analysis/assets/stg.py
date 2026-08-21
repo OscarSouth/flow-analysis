@@ -42,6 +42,7 @@ FLOW_ROW_SCHEMA = pl.Schema(
         "minutes_to_complete": pl.Float64,
         "pull_rank": pl.Int64,
         "interleaved": pl.Int64,
+        "deep": pl.Boolean,
         "failure_kind": pl.Utf8,
     }
 )
@@ -91,6 +92,19 @@ SIGNAL_SCHEMA = pl.Schema(
         # "stars 116.0" in every rendered surface.
         "value": pl.Object,
         "duration_minutes": pl.Float64,
+        # -- payload: the workout heart-rate series (kind: workout_hr) --
+        # Object rather than pl.List so the integer lists ride verbatim into
+        # `to_dicts` and land as Neo4j primitive arrays. Two parallel arrays by
+        # necessity: Neo4j properties cannot nest.
+        "workout_id": pl.Utf8,
+        "ended_at": pl.Utf8,
+        "hr_offsets_s": pl.Object,
+        "hr_bpm": pl.Object,
+        "hr_avg_session": pl.Float64,
+        "hr_min_session": pl.Float64,
+        "hr_max_session": pl.Float64,
+        "active_kcal": pl.Float64,
+        "avg_mets": pl.Float64,
         # -- payload: flags --
         "strength": pl.Boolean,
         "opens_thread": pl.Boolean,
@@ -111,6 +125,7 @@ SET r.outcome = row.outcome,
     r.minutes_to_complete = row.minutes_to_complete,
     r.pull_rank = row.pull_rank,
     r.interleaved = row.interleaved,
+    r.deep = row.deep,
     r.failure_kind = row.failure_kind
 WITH r, row
 MATCH (d:Dim:Day {date: row.day})
@@ -129,7 +144,7 @@ RETURN r.day AS day, r.activity AS activity, r.outcome AS outcome,
        r.minutes_to_start AS minutes_to_start,
        r.minutes_to_complete AS minutes_to_complete,
        r.pull_rank AS pull_rank, r.interleaved AS interleaved,
-       r.failure_kind AS failure_kind
+       r.deep AS deep, r.failure_kind AS failure_kind
 ORDER BY r.day, r.activity
 """
 
@@ -163,6 +178,11 @@ RETURN s.id AS id, s.tier AS tier, s.source AS source, s.kind AS kind,
        s.subscribers_lost AS subscribers_lost,
        s.count AS count, s.uniques AS uniques, s.window_days AS window_days,
        s.value AS value, s.duration_minutes AS duration_minutes,
+       s.workout_id AS workout_id, s.ended_at AS ended_at,
+       s.hr_offsets_s AS hr_offsets_s, s.hr_bpm AS hr_bpm,
+       s.hr_avg_session AS hr_avg_session, s.hr_min_session AS hr_min_session,
+       s.hr_max_session AS hr_max_session, s.active_kcal AS active_kcal,
+       s.avg_mets AS avg_mets,
        s.strength AS strength, s.opens_thread AS opens_thread,
        s.internal AS internal
 ORDER BY coalesce(s.created_at, s.observed_at)

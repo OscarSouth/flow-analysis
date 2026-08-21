@@ -25,6 +25,10 @@ SIGNALS_PATH = DATA_DIR / "signals.jsonl"
 # reviews, interpretations, prescriptions, transformations. The memory MCP's
 # working file is mutable; this is the append-only record it promotes into.
 NOTES_PATH = DATA_DIR / "notes.jsonl"
+# Daily posterior snapshots. The graph's (:Fct:Posterior) history is derived —
+# each sync re-fits only today — so without this stream a purge would destroy
+# the evolving-belief record (it did, on 2026-08-19). Archive-backed since.
+POSTERIORS_PATH = DATA_DIR / "posteriors.jsonl"
 
 
 def ensure_data_dir() -> None:
@@ -40,14 +44,30 @@ def redirect(data_dir: Path) -> Iterator[None]:
     append-only and dedupes on id, so a fixture write is not undoable through
     the normal path. Anything generating fixtures wraps its writes in this.
     """
-    global DATA_DIR, ACTIONS_PATH, CARDS_PATH, STATE_PATH, SIGNALS_PATH, NOTES_PATH
-    saved = (DATA_DIR, ACTIONS_PATH, CARDS_PATH, STATE_PATH, SIGNALS_PATH, NOTES_PATH)
+    global \
+        DATA_DIR, \
+        ACTIONS_PATH, \
+        CARDS_PATH, \
+        STATE_PATH, \
+        SIGNALS_PATH, \
+        NOTES_PATH, \
+        POSTERIORS_PATH
+    saved = (
+        DATA_DIR,
+        ACTIONS_PATH,
+        CARDS_PATH,
+        STATE_PATH,
+        SIGNALS_PATH,
+        NOTES_PATH,
+        POSTERIORS_PATH,
+    )
     DATA_DIR = Path(data_dir)
     ACTIONS_PATH = DATA_DIR / "actions.jsonl"
     CARDS_PATH = DATA_DIR / "cards.jsonl"
     STATE_PATH = DATA_DIR / "state.json"
     SIGNALS_PATH = DATA_DIR / "signals.jsonl"
     NOTES_PATH = DATA_DIR / "notes.jsonl"
+    POSTERIORS_PATH = DATA_DIR / "posteriors.jsonl"
     try:
         yield
     finally:
@@ -58,6 +78,7 @@ def redirect(data_dir: Path) -> Iterator[None]:
             STATE_PATH,
             SIGNALS_PATH,
             NOTES_PATH,
+            POSTERIORS_PATH,
         ) = saved
 
 
@@ -222,23 +243,41 @@ def load_signals() -> list[dict[str, Any]]:
 # --- knowledge notes ---------------------------------------------------------
 
 
-def known_note_ids() -> set[str]:
-    """Every note id already stored, for the dedupe on the next append."""
-    return {row["id"] for row in read_jsonl(NOTES_PATH)}
+def _note_key(row: dict[str, Any]) -> str:
+    """The dedupe key: entity name for entities, the id itself for relations.
+
+    Entities dedupe against their *current latest state*, not against all
+    history — a content hash seen before must still land if the entity has
+    since moved on, or an edit-then-revert (A→B→A) would silently leave the
+    graph holding B. Relations are stateless facts and dedupe globally.
+    """
+    if row.get("note_kind") == "entity":
+        return f"entity:{row['name']}"
+    return str(row["id"])
 
 
-def append_notes(notes: Iterable[dict[str, Any]], known: set[str]) -> int:
-    """Append only notes not already stored.
+def note_state() -> dict[str, str]:
+    """The archive's current state per dedupe key, for the next append."""
+    state: dict[str, str] = {}
+    for row in read_jsonl(NOTES_PATH):
+        state[_note_key(row)] = row["id"]
+    return state
+
+
+def append_notes(notes: Iterable[dict[str, Any]], state: dict[str, str]) -> int:
+    """Append every note that changes the archive's current state.
 
     Ids are content hashes, so re-snapshotting an unchanged memory adds
-    nothing, and an *edited* memory entity lands as a new row — the record
-    keeps every state an entity has passed through.
+    nothing, an *edited* entity lands as a new row, and a *reverted* entity
+    lands again — the record keeps every state an entity has passed through,
+    including returns to earlier ones.
     """
     fresh = []
     for note in notes:
-        if note["id"] in known:
+        key = _note_key(note)
+        if state.get(key) == note["id"]:
             continue
-        known.add(note["id"])
+        state[key] = note["id"]
         fresh.append(note)
     return append_jsonl(NOTES_PATH, fresh)
 
@@ -246,6 +285,85 @@ def append_notes(notes: Iterable[dict[str, Any]], known: set[str]) -> int:
 def load_notes() -> list[dict[str, Any]]:
     """Every archived note, in append order — capture order, by construction."""
     return list(read_jsonl(NOTES_PATH))
+
+
+def latest_notes(rows: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Current state of the knowledge archive: latest row per entity name.
+
+    Stable-sorted by `captured_at` (ties keep input order), so the result is
+    deterministic even if the file is ever reordered — the invariant
+    `stg_knowledge` and `flow memory restore` both fold with, kept in one
+    place so archive readers and the graph cannot diverge.
+    """
+    ordered = sorted(rows, key=lambda r: str(r.get("captured_at") or ""))
+    out: dict[str, dict[str, Any]] = {}
+    for row in ordered:
+        if row.get("note_kind") == "entity":
+            out[row["name"]] = row
+    return out
+
+
+def relation_notes(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every distinct archived relation, in capture order."""
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if row.get("note_kind") == "relation" and row["id"] not in seen:
+            seen.add(row["id"])
+            out.append(row)
+    return out
+
+
+# --- posterior snapshots ------------------------------------------------------
+
+
+def posterior_id(row: dict[str, Any]) -> str:
+    """A deterministic id from the snapshot's content.
+
+    No timestamp in the hash: re-archiving an unchanged (measure, day) row
+    dedupes to nothing, while a same-day re-fit on new data lands as a new
+    state — the archive keeps every state a snapshot passed through, and
+    `latest_posteriors` resolves the current one.
+    """
+    material = json.dumps(
+        {k: v for k, v in row.items() if k not in {"id", "captured_at"}},
+        sort_keys=True,
+        default=str,
+    )
+    return "posterior:" + hashlib.sha256(material.encode()).hexdigest()[:16]
+
+
+def known_posterior_ids() -> set[str]:
+    """Every archived posterior state, for the dedupe on the next append."""
+    return {row["id"] for row in read_jsonl(POSTERIORS_PATH)}
+
+
+def append_posteriors(rows: Iterable[dict[str, Any]], known: set[str]) -> int:
+    """Append only posterior states not already archived."""
+    fresh = []
+    for row in rows:
+        if row["id"] in known:
+            continue
+        known.add(row["id"])
+        fresh.append(row)
+    return append_jsonl(POSTERIORS_PATH, fresh)
+
+
+def load_posteriors() -> list[dict[str, Any]]:
+    """Every archived posterior snapshot state, in append order."""
+    return list(read_jsonl(POSTERIORS_PATH))
+
+
+def latest_posteriors(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The current state per (measure, day), in first-seen order.
+
+    Append order decides ties the same way the graph's MERGE does — the last
+    state written for a (measure, day) is the one that stands.
+    """
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        out[(row["measure"], row["day"])] = row
+    return list(out.values())
 
 
 # --- state -----------------------------------------------------------------

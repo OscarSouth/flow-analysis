@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
+from .contracts import ABERRATION_SHARE, REGISTRY
+from .contracts import by_key as contract_by_key
 from .grid import ABANDONED, COMPLETED, NEVER_APPEARED, NEVER_STARTED, FlowRow
 
 if TYPE_CHECKING:
@@ -33,14 +35,8 @@ MIN_OBS_LATENCY = 20
 DORMANCY_FLAG = 7
 DORMANCY_ESCALATE = 21
 
-# Minimum effect sizes for the three pre-registered hypotheses. Without these a
-# hypothesis is "supported" the moment its leader is ahead by a single count or
-# a single minute, which is not a result — it is a coin landing. Fixed here, in
-# advance, for the same reason the hypotheses themselves were: choosing the
-# threshold after seeing the gap is how anything gets confirmed.
-H1_LEAD_SHARE = 0.20  # leader must beat the runner-up by 20% of its own count
-H2_LEAD_SHARE = 0.20  # leader's median must beat the runner-up's by 20%
-H3_MIN_GAP = 0.10  # 10 percentage points of completion rate
+# Effect margins live in the contract registry (metrics/contracts.py) — one
+# source for bars, windows and gates since the 2026-08-19 rework.
 
 
 @dataclass
@@ -201,144 +197,113 @@ def charge(
     )
 
 
-# --- pre-registered hypotheses ---------------------------------------------
+# --- the deterministic contracts ---------------------------------------------
+# The statistical contracts (c1-c5, c9) are judged in the posterior layer;
+# these three are facts, not estimates, so they are judged here — with the
+# same four-way verdict vocabulary (minus `inconclusive`, which needs a
+# posterior to exist). The registry in metrics/contracts.py is the source of
+# windows, gates and bars.
 
 
-def _verdict(direction_holds: bool, big_enough: bool) -> str:
-    """Three outcomes, not two.
-
-    A hypothesis whose direction holds by a margin too small to mean anything is
-    neither supported nor refuted — collapsing that case into "supported" is
-    exactly the flattering-pattern failure the discipline exists to prevent.
-    """
-    if not direction_holds:
-        return "not supported"
-    return "supported" if big_enough else "inconclusive"
-
-
-def preregistered(
+def contract_dormancy_escalation(
     rows: Sequence[FlowRow], activities: Sequence[str]
-) -> dict[str, Measure]:
-    """The three hypotheses committed to publicly in article 05.
+) -> Measure:
+    """c6 — some mode dormant ≥ 21 consecutive days (the R question)."""
+    contract = contract_by_key("c6_dormancy_escalation")
+    base = dormancy(rows, activities)
+    if not base.ok:
+        return Measure(contract.key, n=base.n, needs=contract.needs)
+    escalated = sorted(
+        name
+        for name, state in (base.value or {}).items()
+        if state.get("status") == "escalate"
+    )
+    return Measure(
+        contract.key,
+        value={
+            "verdict": "supported" if escalated else "not supported",
+            "escalated": escalated,
+            "bar": contract.bar,
+        },
+        n=base.n,
+        needs=contract.needs,
+    )
 
-    Tested as published — not reworded to whatever the data happens to support.
+
+def contract_harmonious_stagnation(
+    rows: Sequence[FlowRow], production: dict[str, int]
+) -> Measure:
+    """c7 — adherence high while production flat (harmony as precursor)."""
+    contract = contract_by_key("c7_harmonious_stagnation")
+    base = adherence_without_production(
+        rows, production, window=contract.window_days or 28
+    )
+    if not base.ok:
+        return Measure(contract.key, n=base.n, needs=contract.needs)
+    flagged = bool((base.value or {}).get("flagged"))
+    return Measure(
+        contract.key,
+        value={
+            "verdict": "supported" if flagged else "not supported",
+            "adherence": (base.value or {}).get("adherence"),
+            "output": (base.value or {}).get("output"),
+            "bar": contract.bar,
+        },
+        n=base.n,
+        needs=contract.needs,
+    )
+
+
+def contract_productive_aberration(
+    rows: Sequence[FlowRow], production: dict[str, int]
+) -> Measure:
+    """c8 — a real share of producing days arrive without a completed Reveal."""
+    contract = contract_by_key("c8_productive_aberration")
+    observed = _observed(rows)
+    days = _days(observed)
+    span = set(days[-(contract.window_days or 60) :])
+    windowed_production = {d: n for d, n in production.items() if d in span}
+    producing_days = sum(1 for n in windowed_production.values() if n > 0)
+    if producing_days < contract.needs:
+        return Measure(contract.key, n=producing_days, needs=contract.needs)
+    base = aberration([r for r in rows if r.day in span], windowed_production)
+    share = (base.value or {}).get("share_of_producing_days") or 0.0
+    return Measure(
+        contract.key,
+        value={
+            "verdict": "supported" if share >= ABERRATION_SHARE else "not supported",
+            "share_of_producing_days": share,
+            "min_share": ABERRATION_SHARE,
+            "days": (base.value or {}).get("days"),
+            "bar": contract.bar,
+        },
+        n=producing_days,
+        needs=contract.needs,
+    )
+
+
+def contract_gates(rows: Sequence[FlowRow]) -> dict[str, Measure]:
+    """Gate-state rows for the posterior contracts.
+
+    The verdicts live on `(:Fct:Posterior {measure: "contract:…"})`; these
+    rows exist so `brief`'s newly-answerable machinery sees each contract's
+    N approach its gate. `value` is a pointer once the gate is met, `None`
+    (a refusal) before it — never a second verdict computation.
     """
     observed = _observed(rows)
     days = _days(observed)
-    results: dict[str, Measure] = {}
-
-    # H1 — Train is the most frequent never_started.
-    if len(days) < MIN_DAYS_RATE:
-        results["h1_train_most_never_started"] = Measure(
-            "h1_train_most_never_started", n=len(days), needs=MIN_DAYS_RATE
-        )
-    else:
-        counts = Counter(r.activity for r in observed if r.outcome == NEVER_STARTED)
-        ranked = counts.most_common()
-        top = ranked[0][0] if ranked else None
-        runner_up = ranked[1][1] if len(ranked) > 1 else 0
-        lead = (
-            (ranked[0][1] - runner_up) / ranked[0][1]
-            if ranked and ranked[0][1]
-            else 0.0
-        )
-        results["h1_train_most_never_started"] = Measure(
-            "h1_train_most_never_started",
-            value={
-                "verdict": _verdict(top == "Train", lead >= H1_LEAD_SHARE),
-                "leader": top,
-                "lead_over_runner_up": round(lead, 3),
-                "min_lead": H1_LEAD_SHARE,
-                "counts": dict(counts),
-            },
-            n=len(days),
-            needs=MIN_DAYS_RATE,
-        )
-
-    # H2 — Express carries the longest median minutes_to_start.
-    medians: dict[str, float] = {}
-    thin: list[str] = []
-    for activity in activities:
-        lat = sorted(
-            r.minutes_to_start
-            for r in observed
-            if r.activity == activity and r.minutes_to_start is not None
-        )
-        if len(lat) < MIN_OBS_LATENCY:
-            thin.append(activity)
+    era_days = len({r.day for r in rows})
+    out: dict[str, Measure] = {}
+    for contract in REGISTRY:
+        if contract.kind != "posterior":
             continue
-        medians[activity] = round(lat[len(lat) // 2], 1)
-    if thin or not medians:
-        results["h2_express_slowest_to_start"] = Measure(
-            "h2_express_slowest_to_start",
-            n=min((len(medians), len(activities))),
-            needs=MIN_OBS_LATENCY,
-            detail={"underpowered_activities": thin},
+        n = era_days if contract.needs_unit == "flow_era_days" else len(days)
+        met = n >= contract.needs
+        value = {"kind": "posterior", "see": contract.measure} if met else None
+        out[contract.key] = Measure(
+            contract.key, value=value, n=n, needs=contract.needs
         )
-    else:
-        # Own names rather than reusing H1's `ranked`/`runner_up`: these are
-        # medians in minutes, those were completion counts.
-        ranked_medians = sorted(medians.items(), key=lambda kv: kv[1], reverse=True)
-        leader, top_median = ranked_medians[0]
-        median_runner_up = ranked_medians[1][1] if len(ranked_medians) > 1 else 0.0
-        lead = (top_median - median_runner_up) / top_median if top_median else 0.0
-        results["h2_express_slowest_to_start"] = Measure(
-            "h2_express_slowest_to_start",
-            value={
-                "verdict": _verdict(leader == "Express", lead >= H2_LEAD_SHARE),
-                "leader": leader,
-                "lead_over_runner_up": round(lead, 3),
-                "min_lead": H2_LEAD_SHARE,
-                "medians": medians,
-            },
-            n=len(observed),
-            needs=MIN_OBS_LATENCY,
-        )
-
-    # H3 — days Write is missed show lower completion across the other four.
-    if len(days) < MIN_DAYS_RATE:
-        results["h3_write_carries_the_others"] = Measure(
-            "h3_write_carries_the_others", n=len(days), needs=MIN_DAYS_RATE
-        )
-    else:
-        by_day: dict[str, dict[str, str]] = defaultdict(dict)
-        for row in observed:
-            by_day[row.day][row.activity] = row.outcome
-        others = [a for a in activities if a != "Write"]
-        did: list[float] = []
-        missed: list[float] = []
-        for outcomes in by_day.values():
-            if "Write" not in outcomes:
-                continue
-            rate = sum(1 for a in others if outcomes.get(a) == COMPLETED) / len(others)
-            (did if outcomes["Write"] == COMPLETED else missed).append(rate)
-        if not missed or not did:
-            results["h3_write_carries_the_others"] = Measure(
-                "h3_write_carries_the_others",
-                n=len(days),
-                needs=MIN_DAYS_RATE,
-                detail={
-                    "reason": "no contrast — Write was never missed, or never done"
-                },
-            )
-        else:
-            with_w, without_w = sum(did) / len(did), sum(missed) / len(missed)
-            results["h3_write_carries_the_others"] = Measure(
-                "h3_write_carries_the_others",
-                value={
-                    "verdict": _verdict(
-                        with_w > without_w, abs(with_w - without_w) >= H3_MIN_GAP
-                    ),
-                    "with_write": round(with_w, 3),
-                    "without_write": round(without_w, 3),
-                    "gap": round(with_w - without_w, 3),
-                    "min_gap": H3_MIN_GAP,
-                    "n_missed_days": len(missed),
-                },
-                n=len(days),
-                needs=MIN_DAYS_RATE,
-            )
-    return results
+    return out
 
 
 # --- coupling to production -------------------------------------------------
@@ -504,8 +469,11 @@ def run_all(
         "coupling": coupling(rows, production),
         "adherence_without_production": adherence_without_production(rows, production),
         "aberration": aberration(rows, production),
+        "c6_dormancy_escalation": contract_dormancy_escalation(rows, activities),
+        "c7_harmonious_stagnation": contract_harmonious_stagnation(rows, production),
+        "c8_productive_aberration": contract_productive_aberration(rows, production),
     }
-    measures.update(preregistered(rows, activities))
+    measures.update(contract_gates(rows))
     return {
         "days": len(_days(_observed(rows))),
         "measures": measures,

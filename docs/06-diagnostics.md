@@ -281,25 +281,68 @@ having it recorded is what will make any future change legible.
 
 Two rules govern everything built on this document.
 
-**Pre-registration.** Hypotheses are written down before they are tested. Three
-are already committed to publicly in article 05 — Train most often never-started;
-Express longest appear→touch delay; Write-missed days depressing the other four.
-Those are the ones the monthly review tests, phrased as they were published. New
-hypotheses get added here, dated, *before* the analysis that examines them. It is
-extremely easy to find a flattering pattern in a habit tracker after the fact.
+**Pre-registration.** Hypotheses are written down before they are tested. New
+hypotheses get added here, dated, *before* the analysis that examines them. It
+is extremely easy to find a flattering pattern in a habit tracker after the
+fact.
+
+**The contract registry (reworked 2026-08-19, superseding H1–H3).** The
+platform launched with three scaffolding hypotheses — Train most
+never-started, Express slowest to first touch, Write-missed days depressing
+the rest. In Oscar's review verdict they were "provisional hypotheses
+implemented when creating the system, to hold up the architecture with some
+filler content … not weight-bearing in terms of creative practice." All
+belief is provisional, and this early rework is a clean starting statement
+of intent: the registry in `metrics/contracts.py` replaces them, recorded
+here rather than hidden. H1 generalised into c1 (no Train prejudgment — the
+first four days already showed Train *not* leading); H3 survived intact as
+c5; H2 was retired without a descendant (latency stays fully served by the
+`latency_median:`/`p_never_started:` posteriors). No published claim was
+broken: article 05 was still unpublished, and its hypothesis passage now
+commits to the registry as a whole rather than enumerating margins.
+
+Each contract mirrors a row of the diagnostic table above: a falsifiable,
+CSF-typed, **rolling** claim — failure-positive (except c9), so the healthy
+state is the claim staying refuted through deliberate practice, and a
+`supported` verdict names the broken component and its Wiggins prescription.
+
+| | claim | CSF | kind / model | window | gate | bar |
+|---|---|---|---|---|---|---|
+| c1 | some mode's never-started rate persistently leads | allocation | `adherence_hierarchical` over never-started | 28d | 14 days | P(per-draw leader ≥ 1.2 × runner-up) ≥ 0.90 |
+| c2 | some mode's abandonment rate persistently leads | T | same, over abandoned | 28d | 14 days | same margin |
+| c3 | Train completion exceeds Express widely | R | `beta_binomial` two-arm | 28d | 14 days | P(gap ≥ 30 pp) ≥ 0.90 |
+| c4 | Reveal completion exceeds Absorb widely | R/E | `beta_binomial` two-arm | 28d | 14 days | P(gap ≥ 30 pp) ≥ 0.90 |
+| c5 | Write-missed days depress the other four | T | `beta_binomial` contrast | 60d | 14 days, both arms | P(gap ≥ 10 pp) ≥ 0.90 |
+| c6 | some mode dormant ≥ 21 consecutive days | R | deterministic (dormancy) | current | 1 day | escalation exists |
+| c7 | adherence ≥ 0.7 while production = 0 | R/E | deterministic | 28d | 28 days | flag condition |
+| c8 | producing days without a completed Reveal | R | deterministic (aberration) | 60d | 4 producing days | share ≥ 25% |
+| c9 | ≥ 1 publication/month sustained, indefinitely | E | `poisson_rate`, λ~Gamma(2,2) | 90d | 90 flow-era days | P(λ ≥ 1/mo) ≥ 0.90 — **health-positive** |
+
+c1/c2's "some mode leads" is judged per posterior draw — the leader is found
+within each draw — never by naming the point-estimate leader first, which
+would be a selection effect. c9 is the registered H4 (2026-08-19), made
+rolling and indefinite the same day: the sabbatical timing is coincidental,
+and the cadence is an absolute minimum, permanently. Extension 5
+(quiet-decay lead/lag) is registered in prose above but has no contract
+machinery yet — it needs months of variation before a formulation would be
+honest.
+
+Snapshot history is archive-backed (`data/posteriors.jsonl`, 2026-08-19):
+verdict runs and ridgelines survive any graph rebuild, so the persistence
+rule below stands on a durable substrate.
+
+**Rolling verdicts carry a persistence rule.** A trailing window sliding one
+day rarely changes truth, so a contract is *standing* — and prescription
+language is allowed — only when the same verdict has held for **7
+consecutive snapshot days** (`PERSISTENCE_DAYS`). Computed from posterior
+history at render time, never stored.
 
 **Decision criteria are Bayesian, from the start (decided 2026-08-18).**
-The platform launched with the rolling posterior layer in place, so there is no
-frequentist legacy to carry: the three published hypotheses are judged as
-posterior probabilities of their published claims *including their published
-effect margins*, computed by the seed-pinned Stan models in `models/` whose
-priors are pre-registered in the model files themselves.
-
-| | claim, as a posterior quantity | prior | model |
-|---|---|---|---|
-| H1 | P(θ_never,Train > 1.2 · max other θ_never) | hierarchical: μ~Beta(2,2), κ~Gamma(2,0.1) | `adherence_hierarchical.stan` |
-| H2 | P(median_Express > 1.2 · max other medians) | α~Gamma(2,1), σ~LogNormal(ln 240, 1) | `latency_survival.stan` |
-| H3 | P(completion gap ≥ 10 pp) | Beta(1,1) per arm | `beta_binomial.stan` |
+The statistical contracts are judged as posterior probabilities of their
+claims *including their pre-registered margins*, computed by the seed-pinned
+Stan models in `models/` whose priors are pre-registered in the model files
+themselves. The deterministic contracts (c6–c8) are facts, not estimates,
+and are judged in `metrics/diagnostics.py` with the same verdict vocabulary.
 
 Verdicts are **four-way**: `supported` at P ≥ 0.90, `not supported` at
 P ≤ 0.10, `inconclusive` between — and `not testable yet` whenever the measure
@@ -314,21 +357,23 @@ the unit line is visibility of uncertainty, not a claim — and every
 so an untrusted fit can be stored as a fact about the sampler without ever
 being read as a result.
 
-**Effect sizes, also fixed in advance.** A hypothesis whose direction holds by a
-single count or a single minute is not supported — it is a coin landing. Each of
-the three carries a minimum effect, chosen before the data existed for the same
-reason the hypotheses were:
+**Effect sizes, also fixed in advance.** A claim whose direction holds by a
+single count or a single minute is not supported — it is a coin landing.
+Every contract's margin sits in the registry, chosen before the data existed
+for the same reason the claims were: choosing the threshold after seeing the
+gap is how anything gets confirmed. `inconclusive` — the direction held, the
+margin did not — is a real verdict, never collapsed into "supported".
 
-| | bar | meaning |
-|---|---|---|
-| H1 | leader ahead of the runner-up by **20%** of its own count | Train being one ahead is not "most frequent" |
-| H2 | leader's median ahead by **20%** | a few minutes' difference in a median is nothing |
-| H3 | **10 percentage points** of completion rate | anything less is inside the noise at this N |
-
-Verdicts are therefore three-way, not two: **supported**, **not supported**, and
-**inconclusive** — the direction held, the margin did not. Collapsing that middle
-case into "supported" is exactly how a habit tracker confirms whatever you hoped
-it would.
+**c9, in Oscar's words (registered 2026-08-19 as H4, made rolling the same
+day).** "1–2 publications (regardless of size/substance) per month is a good
+ambient baseline … I want to maintain this cadence as an absolute minimum,
+indefinitely." Publication = a production-tier public artefact (forum post,
+public YouTube video), counted from the epoch; pre-epoch publications are
+inherited baseline. Implemented in `models/poisson_rate.stan` over a
+trailing 90-day window; registered at publication count zero, before the
+model existed. Graph entity: `hypothesis:2026-08-19:ambient-publication-rate`,
+`tests` → `belief:2026-08-19:two-year-publication-goal`. Note the polarity:
+this is the one health-positive contract — `supported` is the healthy state.
 
 The same logic gates the diagnostic table above: a row fires only when the two
 modes it compares differ by **30 percentage points**. Prescribing a
